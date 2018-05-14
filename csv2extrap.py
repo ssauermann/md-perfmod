@@ -9,16 +9,58 @@ def read_params():
     :return: Named parameter tuple
     """
 
-    Parameters = namedtuple('Parameters', 'vars metric repeat file_in file_out')
+    Parameters = namedtuple('Parameters', 'vars metric repeat file_in file_out experiment')
 
     # TODO Argument parsing
-    variables = ['density', 'cutoff']
+    variables = ['cutoff']
     metric = 'time'
     repeat = 'repeat'
     file_in = 'ls1-bench1.csv'
     file_out = 'ls1-bench1.txt'
+    exp_name = 'experiment'
 
-    return Parameters(variables, metric, repeat, file_in, file_out)
+    return Parameters(variables, metric, repeat, file_in, file_out, exp_name)
+
+
+def write_extrap(mapping, params):
+    """
+    Writes a mapping to the output file in the extrap format.
+    :param mapping: Point to metrics mapping to write
+    :param params: Parameters containing the output file and other settings
+    """
+    with open(params.file_out, 'w') as file:
+        def write(header, values, converter=lambda x: str(x)):
+            """
+            Write a line to the result file
+            :param header: Line prefix
+            :param values: List of values to write
+            :param converter: Function to apply to every value before printing
+            """
+            file.write(header + ' ' + ' '.join(map(converter, values)) + '\n')
+
+        def point_converter(p):
+            """
+            Converts a point to its string representation
+            :param p: Point
+            :return: String representation
+            """
+            if len(p) > 1:
+                return '( ' + ' '.join([str(f) for f in p]) + ' )'
+            else:
+                return str(p[0])
+
+        # Sorting the points by each element
+        points = sorted(mapping.keys())
+
+        # Write extrap file format
+        write('PARAMETER', params.vars)
+        write('POINTS', points, point_converter)
+        file.write('\n')
+        write('EXPERIMENT', [params.experiment])
+        write('METRIC', [params.metric])
+        file.write('\n')
+        for point in points:
+            write('DATA', mapping[point])
 
 
 def main():
@@ -44,7 +86,9 @@ def main():
             mapping[point] = []
         mapping[point].append(row[-2])  # the metric
 
-    print(mapping)
+    write_extrap(mapping, params)
+
+    print("Conversion completed!")
 
 
 if __name__ == "__main__":

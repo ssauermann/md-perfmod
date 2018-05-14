@@ -12,7 +12,7 @@ def read_params():
     Parameters = namedtuple('Parameters', 'vars metric repeat file_in file_out experiment')
 
     # TODO Argument parsing
-    variables = ['density', 'cutoff']
+    variables = ['cutoff']
     metric = 'time'
     repeat = 'repeat'
     file_in = 'ls1-bench1.csv'

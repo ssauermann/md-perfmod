@@ -1,4 +1,5 @@
 import pandas as pd
+import argparse, os
 from collections import namedtuple
 
 
@@ -9,17 +10,41 @@ def read_params():
     :return: Named parameter tuple
     """
 
-    Parameters = namedtuple('Parameters', 'vars metric repeat file_in file_out experiment')
+    Parameters = namedtuple('Parameters', 'vars fixed metric repeat file_in file_out experiment')
 
-    # TODO Argument parsing
-    variables = ['cutoff']
-    metric = 'time'
-    repeat = 'repeat'
-    file_in = 'ls1-bench1.csv'
-    file_out = 'ls1-bench1.txt'
-    exp_name = 'experiment'
+    parser = argparse.ArgumentParser(description='Convert a CSV file containing performance measurements'
+                                                 ' to a input file for Extra-P')
 
-    return Parameters(variables, metric, repeat, file_in, file_out, exp_name)
+    parser.add_argument('file_in', help="Input file [csv]")
+    parser.add_argument('file_out', nargs='?', default='', help='Output file [extra-p text] (will be overwritten)')
+    parser.add_argument('-n', '--name', default='experiment', help='Name of the experiment for the output')
+    parser.add_argument('-r', '--repeat', default='repeat', help='Column containing the repeat count')
+    parser.add_argument('-m', '--metric', default='time', help='Column containing the measurement value')
+    parser.add_argument('-v', '--vars', required=True, nargs='+', help='Column names of the variables to use')
+    parser.add_argument('-f', '--fixed', nargs='+', help='TODO') # TODO Help text + update method documentation
+
+    args = parser.parse_args()
+
+    variables = args.vars
+    fixed = args.fixed
+    metric = args.metric
+    repeat = args.repeat
+    file_in = args.file_in
+    file_out = args.file_out
+    exp_name = args.name
+
+    # If no output filename was given, just use the input file with a txt ending
+    if file_out == '' or file_out.isspace():
+        path, ext = os.path.splitext(file_in)
+        file_out = path + '.txt'
+        if file_out == file_in:
+            file_out += '.extrap' # or with .txt.extrap if the input file has a txt ending already
+
+    params = Parameters(variables, fixed, metric, repeat, file_in, file_out, exp_name)
+
+    print(params) # TODO: Nicer display
+
+    return params
 
 
 def write_extrap(mapping, params):

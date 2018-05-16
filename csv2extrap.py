@@ -29,7 +29,7 @@ def write_extrap(mapping, params):
     :param params: Parameters containing the output file and other settings
     """
     with open(params.file_out, 'w') as file:
-        def write(header, values, converter=lambda x: str(x)):
+        def write(header, values, converter=str):
             """
             Write a line to the result file
             :param header: Line prefix

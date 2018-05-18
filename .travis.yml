@@ -4,8 +4,7 @@ python:
   - "3.5"
   - "3.6"
 install:
-  - pip install pipenv
+  - pip install pipenv --skip-lock
   - pipenv install --dev
-  - pipenv shell
 script:
-  - py.test
+  - pipenv run py.test

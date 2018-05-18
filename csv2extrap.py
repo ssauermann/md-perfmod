@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import argparse, os
 from collections import namedtuple
 
@@ -26,7 +27,6 @@ def read_params():
     args = parser.parse_args()
 
     variables = args.vars
-    fixed = args.fixed
     metric = args.metric
     repeat = args.repeat
     file_in = args.file_in
@@ -39,6 +39,13 @@ def read_params():
         file_out = path + '.txt'
         if file_out == file_in:
             file_out += '.extrap'  # or with .txt.extrap if the input file has a txt ending already
+
+    # Convert fixed variables from [key=val, ...] to dictionary
+    fixed = {}
+    if args.fixed:
+        for entry in args.fixed:
+            key, val = entry.split("=", 1)
+            fixed[key] = float(val)
 
     params = Parameters(variables, fixed, metric, repeat, file_in, file_out, exp_name)
 
@@ -99,10 +106,19 @@ def conversion(data, var, fixed, metric, repeat):
     :return: Point to metric mapping
     """
 
+    # Select rows with fixed parameters
+    selected_data = data
+    for param, val in fixed.items():
+        if param in var:
+            raise ValueError("Parameter %s can not be fixed, because it is used as a variable." % param)
+        selected_data = data[np.isclose(data[param], val)]
+        if len(selected_data) == 0:
+            raise ValueError("Parameter %s can not be fixed to %s." % (param, val))
+
     # Select columns containing variables, metric and repeat count
     # Drop duplicate entries # TODO Selection which of the duplicates to keep
     # Sort by the parameters and the repeat count
-    selected_data = data[var + [metric] + [repeat]] \
+    selected_data = selected_data[var + [metric] + [repeat]] \
         .drop_duplicates(subset=var + [repeat]) \
         .sort_values(var + [repeat])
 

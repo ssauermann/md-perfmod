@@ -21,7 +21,7 @@ def read_params():
     parser.add_argument('-r', '--repeat', default='repeat', help='Column containing the repeat count')
     parser.add_argument('-m', '--metric', default='time', help='Column containing the measurement value')
     parser.add_argument('-v', '--vars', required=True, nargs='+', help='Column names of the variables to use')
-    parser.add_argument('-f', '--fixed', nargs='+', help='TODO') # TODO Help text + update method documentation
+    parser.add_argument('-f', '--fixed', nargs='+', help='TODO')  # TODO Help text + update method documentation
 
     args = parser.parse_args()
 
@@ -38,11 +38,11 @@ def read_params():
         path, ext = os.path.splitext(file_in)
         file_out = path + '.txt'
         if file_out == file_in:
-            file_out += '.extrap' # or with .txt.extrap if the input file has a txt ending already
+            file_out += '.extrap'  # or with .txt.extrap if the input file has a txt ending already
 
     params = Parameters(variables, fixed, metric, repeat, file_in, file_out, exp_name)
 
-    print(params) # TODO: Nicer display
+    print(params)  # TODO: Nicer display
 
     return params
 
@@ -88,18 +88,23 @@ def write_extrap(mapping, params):
             write('DATA', mapping[point])
 
 
-def main():
-    params = read_params()
-
-    # Read CSV into a data frame
-    data = pd.read_csv(params.file_in)
+def conversion(data, var, fixed, metric, repeat):
+    """
+    Converts the given data frame to a point to metric mapping.
+    :param data: Data frame to convert
+    :param var: List of variables to use as parameters
+    :param fixed: Dict of unused variables to keep fixed at a specific value
+    :param metric: The metric to use
+    :param repeat: The column containing the repeat count
+    :return: Point to metric mapping
+    """
 
     # Select columns containing variables, metric and repeat count
     # Drop duplicate entries # TODO Selection which of the duplicates to keep
     # Sort by the parameters and the repeat count
-    selected_data = data[params.vars + [params.metric] + [params.repeat]] \
-        .drop_duplicates(subset=params.vars + [params.repeat]) \
-        .sort_values(params.vars + [params.repeat])
+    selected_data = data[var + [metric] + [repeat]] \
+        .drop_duplicates(subset=var + [repeat]) \
+        .sort_values(var + [repeat])
 
     # Convert the selected data to a map of points to a list of metrics
     # A point is a tuple of variable instances e.g. (2.0, 1.2) for variables (a, b)
@@ -110,6 +115,17 @@ def main():
         if point not in mapping.keys():
             mapping[point] = []
         mapping[point].append(row[-2])  # the metric
+
+    return mapping
+
+
+def main():
+    params = read_params()
+
+    # Read CSV into a data frame
+    data = pd.read_csv(params.file_in)
+
+    mapping = conversion(data, params.vars, params.fixed, params.metric, params.repeat)
 
     write_extrap(mapping, params)
 

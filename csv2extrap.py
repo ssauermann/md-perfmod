@@ -1,7 +1,9 @@
-import pandas as pd
-import numpy as np
-import argparse, os
+import argparse
 from collections import namedtuple
+
+import numpy as np
+import os
+import pandas as pd
 
 
 def read_params():
@@ -105,32 +107,50 @@ def conversion(data, var, fixed, metric, repeat):
     :param repeat: The column containing the repeat count
     :return: Point to metric mapping
     """
+    # Parameter validation
+    if repeat is not None and repeat not in data.columns:
+        raise ValueError('Repeat column `%s` does not exist.' % repeat)
+    if metric not in data.columns:
+        raise ValueError('Metric column `%s` does not exist.' % metric)
+    for v in var:
+        if v not in data.columns:
+            raise ValueError('Variable column `%s` does not exist.' % v)
+    for f in fixed.keys():
+        if f not in data.columns:
+            raise ValueError('Variable column `%s` does not exist and therefore can not be fixed.' % f)
 
     # Select rows with fixed parameters
-    selected_data = data
+    selected_data = data.sort_values(list(data.columns))
     for param, val in fixed.items():
         if param in var:
-            raise ValueError("Parameter %s can not be fixed, because it is used as a variable." % param)
+            raise ValueError("Parameter `%s` can not be fixed, because it is used as a variable." % param)
         selected_data = data[np.isclose(data[param], val)]
         if len(selected_data) == 0:
-            raise ValueError("Parameter %s can not be fixed to %s." % (param, val))
+            raise ValueError("Parameter `%s` can not be fixed to `%s`." % (param, val))
+
+    # Create list of columns to use
+    columns_no_metrics = [] + var
+    columns_all = [] + var + [metric]
+    if repeat is not None:
+        columns_no_metrics += [repeat]
+        columns_all += [repeat]
 
     # Select columns containing variables, metric and repeat count
-    # Drop duplicate entries # TODO Selection which of the duplicates to keep
+    # Drop duplicate entries
     # Sort by the parameters and the repeat count
-    selected_data = selected_data[var + [metric] + [repeat]] \
-        .drop_duplicates(subset=var + [repeat]) \
-        .sort_values(var + [repeat])
+    selected_data = selected_data[columns_all] \
+        .drop_duplicates(subset=columns_no_metrics) \
+        .sort_values(columns_no_metrics)
 
     # Convert the selected data to a map of points to a list of metrics
     # A point is a tuple of variable instances e.g. (2.0, 1.2) for variables (a, b)
     # The list of metrics consists of the repeated measurements
     mapping = {}
     for row in selected_data.values:
-        point = tuple(row[:-2])  # the vars
+        point = tuple(row[:len(var)])  # the vars
         if point not in mapping.keys():
             mapping[point] = []
-        mapping[point].append(row[-2])  # the metric
+        mapping[point].append(row[len(var)])  # the metric
 
     return mapping
 

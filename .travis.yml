@@ -7,4 +7,4 @@ install:
   - pip install pipenv
   - pipenv install --dev --skip-lock
 script:
-  - pipenv run py.test
+  - pipenv run py.test -v

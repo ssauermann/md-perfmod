@@ -8,23 +8,34 @@ import pandas as pd
 
 def read_params():
     """
-    Read the input parameters required to determine which CSV column is the repeat count, the metric to use and the
-    variables of the model. As well as the path of the input and output files.
+    Reads and processes the program arguments and returns them as a named tuple.
     :return: Named parameter tuple
     """
 
     Parameters = namedtuple('Parameters', 'vars fixed metric repeat file_in file_out experiment')
 
-    parser = argparse.ArgumentParser(description='Convert a CSV file containing performance measurements'
-                                                 ' to a input file for Extra-P')
+    parser = argparse.ArgumentParser(description='Converts a CSV file containing performance measurements'
+                                                 ' to an input file for Extra-P',
+                                     epilog='Example of use: python csv2extrap.py data.csv -v p q -f a=42 b=3.14')
 
     parser.add_argument('file_in', help="Input file [csv]")
-    parser.add_argument('file_out', nargs='?', default='', help='Output file [extra-p text] (will be overwritten)')
-    parser.add_argument('-n', '--name', default='experiment', help='Name of the experiment for the output')
-    parser.add_argument('-r', '--repeat', default='repeat', help='Column containing the repeat count')
-    parser.add_argument('-m', '--metric', default='time', help='Column containing the measurement value')
-    parser.add_argument('-v', '--vars', required=True, nargs='+', help='Column names of the variables to use')
-    parser.add_argument('-f', '--fixed', nargs='+', help='TODO')  # TODO Help text + update method documentation
+    parser.add_argument('file_out', nargs='?', default='',
+                        help='Output file (will be overwritten) [default: FILE_IN with the file ending changed to .txt]')
+    parser.add_argument('-n', '--name', default='experiment',
+                        help='Name of the experiment for the output [default: %(default)s]')
+    parser.add_argument('-r', '--repeat', default='repeat',
+                        help='Column containing the repeat count [default: %(default)s]')
+    parser.add_argument('-m', '--metric', default='time',
+                        help='Column containing the measurement value [default: %(default)s]')
+    parser.add_argument('-v', '--vars', required=True, nargs='+',
+                        help='Column names of the variables to use')
+    parser.add_argument('-f', '--fixed', nargs='+',
+                        help='Assignments (variable=value) to fix variables, that are not used for model creation, '
+                             'to a specific value.\n'
+                             'E.g. when measurements for different combinations of (p, q) were performed but a model '
+                             'for only p should be created, using the measurements when q was 3.')
+    parser.add_argument('--single-measurement', action='store_true',
+                        help='Use this flag if your data has no repeated measurements and therefore no repeat column')
 
     args = parser.parse_args()
 
@@ -34,6 +45,9 @@ def read_params():
     file_in = args.file_in
     file_out = args.file_out
     exp_name = args.name
+
+    if args.single_measurement:
+        repeat = None
 
     # If no output filename was given, just use the input file with a txt ending
     if file_out == '' or file_out.isspace():

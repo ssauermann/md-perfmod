@@ -103,10 +103,11 @@ def write_extrap(mapping, params):
         # Write extrap file format
         write('PARAMETER', params.vars)
         write('POINTS', points, point_converter)
-        file.write('\n')
-        write('EXPERIMENT', [params.experiment])
         write('METRIC', [params.metric])
-        file.write('\n')
+        if len(params.vars) > 1:
+            write('EXPERIMENT', [params.experiment])
+        else:
+            write('REGION', [params.experiment])
         for point in points:
             write('DATA', mapping[point])
 

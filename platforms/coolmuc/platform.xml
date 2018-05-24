@@ -42,8 +42,7 @@
         <sub source="#ENV#" dest="$env" />
         <sub source="#NOTIFY_EMAIL#" dest="$mail" />
         <sub source="#NOTIFICATION_TYPE#" dest="$notification" />
-        <sub source="#BENCHNAME#"
-             dest="${jube_benchmark_name}_${jube_step_name}_${jube_wp_id}" />
+        <sub source="#BENCHNAME#" dest="${jube_benchmark_name}" />
         <sub source="#NODES#" dest="$nodes" />
         <sub source="#TASKS#" dest="$tasks" />
         <sub source="#NCPUS#" dest="$taskspernode" />

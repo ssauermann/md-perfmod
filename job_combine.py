@@ -6,7 +6,7 @@ import os
 
 def read_args():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-s', '--storage-file', default='sbatch.storage',
+    parser.add_argument('-s', '--storage-file', default='job_combine.storage',
                         help='Path to the file the added scripts are stored [default: %(default)s]')
     parser.add_argument('-v', '--verbose', action='count', help='Enables verbose output')
 
@@ -46,17 +46,53 @@ def store(file, dic):
     with open(file, 'wb+') as f:
         pickle.dump(dic, f)
 
+def combine(scripts, stdout, stderr):
+    ret = ''
+
+    for job_file, task in scripts:
+        path = os.path.dirname(job_file)
+        if path != '':
+            ret += 'cd %s\n' % path
+        ret += '{%s} >%s 2>%s\n' % (task, stdout, stderr)
+
+    return ret
+
 
 def queue(args):
+    dic = load(args.storage_file)
+
+    dir_counter = 0
+    for k,v in dic.items():
+        params = dict(k)
+        combined = combine(v, params['output'], params['error']) # TODO Time constraint -t
+        script_dir = './scripts/%02i' % dir_counter
+        dir_counter+=1
+        os.makedirs(script_dir, exist_ok=True)
+        with open('%s/submit.job' % script_dir , 'w+') as job:
+            # print header
+            job.write('#!/bin/bash -x\n')
+            for p in params.items():
+                print(p)
+                if p[1] is None:
+                    job.write('#SBATCH --%s\n' % p[0])
+                elif p[0] == 'time':
+                    time = to_slurm_time(from_slurm_time(p[1]) * len(v))
+                    job.write('#SBATCH --time=%s\n' % time)
+                else:
+                    job.write('#SBATCH --%s=%s\n' % p)
+
+            # print scripts
+            job.write(combined)
+
+        # TODO Call sbatch for script_dir/submit.job' % hash(k)
     print('Dispatched queue')
-    # TODO Implement
 
 
 def add(args):
     dic = load(args.storage_file)
 
     key_list = []
-    task = args.job_file
+    task = ''
     with open(args.job_file, 'r') as f:
         for line in f:
             if line.startswith('#SBATCH '):
@@ -64,13 +100,15 @@ def add(args):
                 param_key = param[0]
                 param_val = param[1] if len(param) > 1 else ''
                 key_list.append((param_key, param_val))
+            elif not line.startswith('#'):
+                task += line
 
     key_list.sort(key=lambda x: x[0])
     key = tuple(key_list)
 
     if key not in dic.keys():
         dic[key] = []
-    dic[key].append(task)
+    dic[key].append((args.job_file, task))
     store(args.storage_file, dic)
     print('Added new entry')
 
@@ -98,9 +136,10 @@ def status(args):
         time_str = next(param_value for (param_key, param_value) in k if param_key == 'time')
         time_sec = from_slurm_time(time_str)
         total_time += time_sec * len(v)
+    total_time_str = to_slurm_time(total_time)
+
     dif_tasks = len(dic)
 
-    total_time_str = to_slurm_time(total_time)
     print('Stored %i tasks with a total time of %s combinable to %i tasks.' % (n_tasks, total_time_str, dif_tasks))
     if int(args.verbose) >= 1:
         l = []

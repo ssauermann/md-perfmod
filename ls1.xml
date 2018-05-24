@@ -23,7 +23,7 @@
       <copy>${mardyn_dir}/*</copy>
     </fileset>
 
-    <!-- initial paramterset with corresponding set in
+    <!-- initial parameterset with corresponding set in
     $JUBE_INCLUDE_PATH/platform.xml -->
     <parameterset name="systemParameter" init_with="platform.xml">
       <parameter name="nodes" type="int">1</parameter>

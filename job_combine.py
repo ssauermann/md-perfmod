@@ -34,7 +34,8 @@ def read_args():
 
 
 def load(file):
-    with open(file, 'ab+') as f:
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(dir_path + "/" + file, 'ab+') as f:
         try:
             f.seek(0)
             return pickle.load(f)
@@ -43,8 +44,10 @@ def load(file):
 
 
 def store(file, dic):
-    with open(file, 'wb+') as f:
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    with open(dir_path + "/" + file, 'wb+') as f:
         pickle.dump(dic, f)
+
 
 def combine(scripts, stdout, stderr):
     ret = ''
@@ -62,13 +65,13 @@ def queue(args):
     dic = load(args.storage_file)
 
     dir_counter = 0
-    for k,v in dic.items():
+    for k, v in dic.items():
         params = dict(k)
-        combined = combine(v, params['output'], params['error']) # TODO Time constraint -t
+        combined = combine(v, params['output'], params['error'])  # TODO Time constraint -t
         script_dir = './scripts/%02i' % dir_counter
-        dir_counter+=1
+        dir_counter += 1
         os.makedirs(script_dir, exist_ok=True)
-        with open('%s/submit.job' % script_dir , 'w+') as job:
+        with open('%s/submit.job' % script_dir, 'w+') as job:
             # print header
             job.write('#!/bin/bash -x\n')
             for p in params.items():
@@ -108,7 +111,7 @@ def add(args):
 
     if key not in dic.keys():
         dic[key] = []
-    dic[key].append((args.job_file, task))
+    dic[key].append((os.path.abspath(args.job_file), task))
     store(args.storage_file, dic)
     print('Added new entry')
 

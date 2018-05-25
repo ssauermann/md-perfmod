@@ -78,7 +78,7 @@
       <use>executesub</use>
       <use from="platform.xml">executeset</use>
       <use from="platform.xml">jobfiles</use>
-      <do done_file="$done_file">${submit} ${submit_script}</do>
+      <do done_file="$done_file">python3 ${jube_benchmark_home$}/job_combine.py add ${submit_script}</do>
     </step>
 
 

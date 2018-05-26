@@ -1,7 +1,7 @@
 import argparse
 import pickle
 
-import os
+from os import path, makedirs
 
 
 def read_args():
@@ -32,10 +32,12 @@ def read_args():
 
     mode.func(mode)
 
+def abs_folder(file = __file__):
+    return path.dirname(path.realpath(path.expandvars(path.expanduser(file))))
 
 def load(file):
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(dir_path + "/" + file, 'ab+') as f:
+    file_abs = path.join(abs_folder(), file)
+    with open(file_abs, 'ab+') as f:
         try:
             f.seek(0)
             return pickle.load(f)
@@ -44,21 +46,20 @@ def load(file):
 
 
 def store(file, dic):
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(dir_path + "/" + file, 'wb+') as f:
+    file_abs = path.join(abs_folder(), file)
+    with open(file_abs, 'wb+') as f:
         pickle.dump(dic, f)
 
 
 def combine(scripts, stdout, stderr):
-    ret = ''
+    combined = ''
 
     for job_file, task in scripts:
-        path = os.path.dirname(job_file)
-        if path != '':
-            ret += 'cd %s\n' % path
-        ret += '{%s} >%s 2>%s\n' % (task, stdout, stderr)
+        folder = abs_folder(job_file)
+        combined += 'cd %s\n' % folder # cd to folder of original script
+        combined += '(%s) 1>%s 2>%s\n' % (task, stdout, stderr) # execute script in sub-shell and pipe output to files
 
-    return ret
+    return combined
 
 
 def queue(args):
@@ -70,7 +71,7 @@ def queue(args):
         combined = combine(v, params['output'], params['error'])  # TODO Time constraint -t
         script_dir = './scripts/%02i' % dir_counter
         dir_counter += 1
-        os.makedirs(script_dir, exist_ok=True)
+        makedirs(script_dir, exist_ok=True)
         with open('%s/submit.job' % script_dir, 'w+') as job:
             # print header
             job.write('#!/bin/bash -x\n')

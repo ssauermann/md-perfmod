@@ -1,9 +1,11 @@
 import argparse
 import pickle
 from collections import namedtuple
+from datetime import datetime
+from datetime import timedelta
 
-from os import path, makedirs
 import re
+from os import path, makedirs
 
 
 class Job:
@@ -11,7 +13,7 @@ class Job:
                                                     ' stderr_args directory_args arg_regex flag_regex arg_format'
                                                     ' flag_format')
 
-    managers = { # TODO: Regex are not quite correct and still to greedy
+    managers = {
         'Slurm': WorkloadManager(
             name='Slurm',
             directive='#SBATCH',
@@ -21,8 +23,8 @@ class Job:
             stdout_args=['output', 'o'],
             stderr_args=['error', 'e'],
             directory_args=['chdir', 'D'],
-            arg_regex=['--(?<arg>.+)=(?<val>.*)', '-(?<arg>.+)\s+(?<val>.*)\s*'],
-            flag_regex=['--(?<arg>.+)', '-(?<arg>.+)'],
+            arg_regex=['--(?<arg>.+?)=(?<val>.*?)[\ \t]*$', '(?<!-)-(?!-)(?<arg>.+?)[\ \t]+(?<val>.+?)[\ \t]*$'],
+            flag_regex=['--(?<arg>[^=\ ]+?)[\ \t]*$', '(?<!-)-(?!-)(?<arg>[^=\ ]+?)[\ \t]*$'],
             arg_format=['--%s=%s', '-%s %s'],
             flag_format=['--%s', '-%s'],
         ),
@@ -35,54 +37,144 @@ class Job:
             stdout_args=['output'],
             stderr_args=['error'],
             directory_args=['initialdir'],
-            arg_regex=['(?<arg>.+)\s*=\s*(?<val>.*)'],
-            flag_regex=['(?<arg>.+)'],
+            arg_regex=['(?<=[\ \t])(?<arg>.+?)[\ \t]*=[\ \t]*(?<val>.+?)[\ \t]*$'],
+            flag_regex=['^#@[\ \t]+(?<arg>[^=\ ]+?)[\ \t]*$'],
             arg_format=['%s = %s'],
+            flag_format=['%s'],
         ),
         # Add other workload managers here if needed.
         # Lists have to be of the same length. Use None to fill missing values.
+        # Regex expressions are applied to the complete line including the directive
+        # Capture groups must be named 'arg' and 'val' for the arg_regex and 'arg' for the flag_regex
     }
 
-    def __init__(self, directory, time, stdout, stderr, params):
+    def __init__(self, name, directory, time, stdout, stderr, params, manager):
+        self.name = name
         self.directory = directory
         self.time = time
         self.stdout = stdout
         self.stderr = stderr
         self.params = params
+        self.manager = manager
+
+    @staticmethod
+    def str_to_timedelta(time_str, formats):
+        """
+        Converts a string representation to a time delta
+        :param time_str: Time string
+        :param formats: Time format
+        :return: Time delta
+        """
+        epoch = datetime.utcfromtimestamp(0)
+        time = None
+
+        # find the first matching time format
+        for f in formats:
+            try:
+                time = datetime.strptime(time_str, f)
+                break
+            except ValueError:
+                pass
+
+        # no format matched
+        if time is None:
+            raise ValueError('Not a supported time format: `%s`' % time_str)
+
+        return time - epoch
+
+    @staticmethod
+    def str_from_timedelta(time_delta, time_format):
+        """
+        Converts a time delta to a string representation
+        :param time_delta: Time delta
+        :param time_format: Time format
+        :return: Time string
+        """
+        epoch = datetime.utcfromtimestamp(0)
+        time = epoch + time_delta
+        time.strftime(time_format)
 
     @classmethod
-    def from_file(cls, job_file):
+    def from_file(cls, job_file, workload_manager = None):
+        """
+        Parses a job file to a Job object
+        :param job_file: Path to the job file
+        :param workload_manager: Name of the workload manager this script is for
+        :return: Job object
+        """
+        try:
+            manager = Job.managers[workload_manager]
+        except KeyError:
+            raise ValueError("Workload manager not supported: %s" % workload_manager)
+
         directory = abs_folder(job_file)
-        manager = None
+        name = None
+        time = timedelta()  # zero
+        stdout = None
+        stderr = None
+        params = []
 
         with open(job_file, 'r') as f:
             for line in f:
                 if line.startswith('#!'):  # shebang
                     pass
-                elif line.startswith('# '):  # comment, not a job directive
+                elif line.startswith('# '):  # comment, can not be a job directive
                     pass
                 elif line.startswith('#'):  # directive
 
-                    # Infer workload manager via directive
+                    # infer workload manager via directive
                     if manager is None:
                         for wm in Job.managers.values():
                             if line.startswith(wm.directive):
                                 manager = wm
                                 break
 
-                    match = re.search(manager.arg_regex, line)
+                    if not line.startswith(manager.directive):
+                        # assume line is a comment as it is no shebang and is not matching the current directive
+                        continue
+
+                    # apply all arg and flag regex' to the line
+                    matches = (re.search(regex, line) for regex in manager.arg_regex + manager.flag_regex)
+
+                    # get the first successful match
+                    match = next((match for match in matches if match is not None), None)
+
+                    # no valid match -> can not continue
                     if match is None:
                         raise RuntimeError('Can not process directive `%s`' % line)
-                    # TODO
-                    # Parse parameters
-                    param = line.lstrip('#SBATCH --').rstrip('\n').split('=', maxsplit=1)
-                    param_key = param[0]
-                    param_val = param[1] if len(param) > 1 else ''
-                    key_list.append((param_key, param_val))
-                elif not line.startswith('#'):
-                    task += line
 
-        return cls(directory)
+                    # get matching results from capture groups; val is None for flags
+                    arg, val = match.group('arg', 'val')
+
+                    if arg in manager.time_args:
+                        time = Job.str_to_timedelta(val, manager.time_formats)
+                    elif arg in manager.stdout_args:
+                        stdout = val
+                    elif arg in manager.stderr_args:
+                        stderr = val
+                    elif arg in manager.directory_args:
+                        # working dir could be given relative to job file
+                        d = path.expandvars(path.expanduser(arg))  # expand ~/ or env. variables
+                        if path.isabs(d):
+                            directory = d
+                        else:
+                            directory = path.join(directory, d)
+                    elif arg in manager.name_args:
+                        name = val
+                    else:
+                        # Store argument, value pair to be able to decide which scripts can be combined
+                        params.append((arg, val))
+
+                else:  # script lines
+                    pass
+
+        # sort parameter list [(arg, val)...] by arg and convert to a tuple
+        params = (sorted(params, key=lambda x: x[0]))
+
+        if manager is None:
+            raise ValueError('`%s` is not a supported job file' % job_file)
+
+        return cls(name, directory, time, stdout, stderr, params, manager.name)
 
 
 def read_args():
@@ -113,8 +205,10 @@ def read_args():
 
     mode.func(mode)
 
-def abs_folder(file = __file__):
+
+def abs_folder(file=__file__):
     return path.dirname(path.realpath(path.expandvars(path.expanduser(file))))
+
 
 def load(file):
     file_abs = path.join(abs_folder(), file)

@@ -1,7 +1,49 @@
 import argparse
 import pickle
+from collections import namedtuple
 
 from os import path, makedirs
+
+
+class Job:
+    WorkloadManager = namedtuple('WorkloadManager', 'name directive name_args time_args time_formats stdout_args'
+                                                    ' stderr_args directory_args')
+
+    managers = {
+        'Slurm': WorkloadManager(
+            name='Slurm',
+            directive='#SBATCH',
+            name_args=['--job-name=(?<val>.*)', '-J\s+(?<val>.*)'],
+            time_args=['--time=(?<val>.*)', '-t\s+(?<val>.*)'],
+            time_formats=['%d-%H:%M:%S', '%d-%H:%M', '%d-%H', '%H:%M:%S', '%M:%S', '%M'],
+            stdout_args=['--output=(?<val>.*)', '-o\s+(?<val>.*)'],
+            stderr_args=['--error=(?<val>.*)', '-e\s+(?<val>.*)'],
+            directory_args=['--chdir=(?<val>.*)', '-D\s+(?<val>.*)'],
+        ),
+        'LoadLeveler': WorkloadManager(
+            name='LoadLeveler',
+            directive='#@',
+            name_args=['job_name\s*=\s*(?<val>.*)'],
+            time_args=['wall_clock_limit\s*=\s*(?<val>.*)'],
+            time_formats=['%H:%M:%S'],
+            stdout_args=['output\s*=\s*(?<val>.*)'],
+            stderr_args=['error\s*=\s*(?<val>.*)'],
+            directory_args=['initialdir\s*=\s*(?<val>.*)'],
+        ),
+        # Add other workload managers here if needed
+    }
+
+    def __init__(self, directory, time, stdout, stderr, params):
+        self.directory = directory
+        self.time = time
+        self.stdout = stdout
+        self.stderr = stderr
+        self.params = params
+
+    @classmethod
+    def from_file(cls, job_file, workload_manager=None):
+        directory = abs_folder(job_file)
+        # TODO
 
 
 def read_args():

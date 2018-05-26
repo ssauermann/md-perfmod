@@ -3,34 +3,44 @@ import pickle
 from collections import namedtuple
 
 from os import path, makedirs
+import re
 
 
 class Job:
     WorkloadManager = namedtuple('WorkloadManager', 'name directive name_args time_args time_formats stdout_args'
-                                                    ' stderr_args directory_args')
+                                                    ' stderr_args directory_args arg_regex flag_regex arg_format'
+                                                    ' flag_format')
 
-    managers = {
+    managers = { # TODO: Regex are not quite correct and still to greedy
         'Slurm': WorkloadManager(
             name='Slurm',
             directive='#SBATCH',
-            name_args=['--job-name=(?<val>.*)', '-J\s+(?<val>.*)'],
-            time_args=['--time=(?<val>.*)', '-t\s+(?<val>.*)'],
+            name_args=['job-name', 'J'],
+            time_args=['time', 't'],
             time_formats=['%d-%H:%M:%S', '%d-%H:%M', '%d-%H', '%H:%M:%S', '%M:%S', '%M'],
-            stdout_args=['--output=(?<val>.*)', '-o\s+(?<val>.*)'],
-            stderr_args=['--error=(?<val>.*)', '-e\s+(?<val>.*)'],
-            directory_args=['--chdir=(?<val>.*)', '-D\s+(?<val>.*)'],
+            stdout_args=['output', 'o'],
+            stderr_args=['error', 'e'],
+            directory_args=['chdir', 'D'],
+            arg_regex=['--(?<arg>.+)=(?<val>.*)', '-(?<arg>.+)\s+(?<val>.*)\s*'],
+            flag_regex=['--(?<arg>.+)', '-(?<arg>.+)'],
+            arg_format=['--%s=%s', '-%s %s'],
+            flag_format=['--%s', '-%s'],
         ),
         'LoadLeveler': WorkloadManager(
             name='LoadLeveler',
             directive='#@',
-            name_args=['job_name\s*=\s*(?<val>.*)'],
-            time_args=['wall_clock_limit\s*=\s*(?<val>.*)'],
+            name_args=['job_name'],
+            time_args=['wall_clock_limit'],
             time_formats=['%H:%M:%S'],
-            stdout_args=['output\s*=\s*(?<val>.*)'],
-            stderr_args=['error\s*=\s*(?<val>.*)'],
-            directory_args=['initialdir\s*=\s*(?<val>.*)'],
+            stdout_args=['output'],
+            stderr_args=['error'],
+            directory_args=['initialdir'],
+            arg_regex=['(?<arg>.+)\s*=\s*(?<val>.*)'],
+            flag_regex=['(?<arg>.+)'],
+            arg_format=['%s = %s'],
         ),
-        # Add other workload managers here if needed
+        # Add other workload managers here if needed.
+        # Lists have to be of the same length. Use None to fill missing values.
     }
 
     def __init__(self, directory, time, stdout, stderr, params):
@@ -41,9 +51,38 @@ class Job:
         self.params = params
 
     @classmethod
-    def from_file(cls, job_file, workload_manager=None):
+    def from_file(cls, job_file):
         directory = abs_folder(job_file)
-        # TODO
+        manager = None
+
+        with open(job_file, 'r') as f:
+            for line in f:
+                if line.startswith('#!'):  # shebang
+                    pass
+                elif line.startswith('# '):  # comment, not a job directive
+                    pass
+                elif line.startswith('#'):  # directive
+
+                    # Infer workload manager via directive
+                    if manager is None:
+                        for wm in Job.managers.values():
+                            if line.startswith(wm.directive):
+                                manager = wm
+                                break
+
+                    match = re.search(manager.arg_regex, line)
+                    if match is None:
+                        raise RuntimeError('Can not process directive `%s`' % line)
+                    # TODO
+                    # Parse parameters
+                    param = line.lstrip('#SBATCH --').rstrip('\n').split('=', maxsplit=1)
+                    param_key = param[0]
+                    param_val = param[1] if len(param) > 1 else ''
+                    key_list.append((param_key, param_val))
+                elif not line.startswith('#'):
+                    task += line
+
+        return cls(directory)
 
 
 def read_args():

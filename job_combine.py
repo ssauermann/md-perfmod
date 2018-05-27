@@ -3,6 +3,7 @@ import pickle
 from collections import namedtuple, defaultdict
 from datetime import datetime
 from datetime import timedelta
+from difflib import SequenceMatcher
 
 import os
 import re
@@ -10,13 +11,15 @@ from os import path
 
 
 class Job:
-    WorkloadManager = namedtuple('WorkloadManager', 'name directive name_args time_args time_formats stdout_args'
-                                                    ' stderr_args directory_args arg_regex flag_regex arg_format'
-                                                    ' flag_format')
+    WorkloadManager = namedtuple('WorkloadManager',
+                                 'name dispatch_command directive name_args time_args time_formats stdout_args'
+                                 ' stderr_args directory_args arg_regex flag_regex arg_format'
+                                 ' flag_format')
 
     managers = {
         'Slurm': WorkloadManager(
             name='Slurm',
+            dispatch_command='sbatch',
             directive='#SBATCH',
             name_args=['job-name', 'J'],
             time_args=['time', 't'],
@@ -31,6 +34,7 @@ class Job:
         ),
         'LoadLeveler': WorkloadManager(
             name='LoadLeveler',
+            dispatch_command='llsubmit',
             directive='#@',
             name_args=['job_name'],
             time_args=['wall_clock_limit'],
@@ -49,7 +53,8 @@ class Job:
         # Capture groups must be named 'arg' and 'val' for the arg_regex and 'arg' for the flag_regex
     }
 
-    def __init__(self, name, directory, time, stdout, stderr, params, manager):
+    def __init__(self, file, name, directory, time, stdout, stderr, params, manager):
+        self.file = file
         self.name = name
         self.directory = directory
         self.time = time
@@ -66,6 +71,31 @@ class Job:
 
     def __ne__(self, other):
         return not (self == other)
+
+    def to_string(self):
+        m = Job.managers[self.manager]
+
+        def dformat(args, val, can_be_flag=False):
+            arg = args[0]
+            if val is None:
+                if can_be_flag:
+                    return m.directive + ' ' + (m.flag_format[0] % (arg, val)) + '\n'
+                else:
+                    return ''  # exclude
+            else:
+                return m.directive + ' ' + (m.arg_format[0] % arg) + '\n'
+
+        ret = '#!/bin/bash -x\n'
+        ret += dformat(m.name_args, self.name)
+        ret += dformat(m.time_args, Job.str_from_timedelta(self.time, m.time_formats[0]))
+        ret += dformat(m.name_args, self.directory)
+        ret += dformat(m.stdout_args, self.stdout)
+        ret += dformat(m.stderr_args, self.stderr)
+
+        for key, val in self.params:
+            ret += dformat(key, val, can_be_flag=True)
+
+        return ret
 
     @staticmethod
     def str_to_timedelta(time_str, formats):
@@ -184,7 +214,7 @@ class Job:
         if manager is None:
             raise ValueError('`%s` is not a supported job file' % job_file)
 
-        return cls(name, directory, time, stdout, stderr, params, manager.name)
+        return cls(abs_path(job_file), name, directory, time, stdout, stderr, params, manager.name)
 
 
 def read_args():
@@ -215,6 +245,10 @@ def read_args():
                                                              ': [%s]' % (', '.join(Job.managers.keys())))
 
     # Arguments for 'queue'
+    parser_queue.add_argument('--no-dispatch', action='store_true', help='Only create the combined scripts but do not'
+                                                                         ' dispatch them to the queue')
+    parser_queue.add_argument('-d', '--directory', default='scripts', help='Directory to store the combined scripts in'
+                                                                           ' [default: %(default)s]')
     parser_queue.add_argument('-t', '--max-time', help='No combined job will have a runtime longer than this value')
     parser_queue.add_argument('-m', '--min-time', help='No combined job will have a runtime with less than this value')
     parser_queue.add_argument('-p', '--parallel', default=1,
@@ -235,7 +269,11 @@ def read_args():
 
 
 def abs_folder(file=__file__):
-    return path.dirname(path.realpath(path.expandvars(path.expanduser(file))))
+    return path.dirname(abs_path(file))
+
+
+def abs_path(file):
+    return path.realpath(path.expandvars(path.expanduser(file)))
 
 
 def load(file):
@@ -254,53 +292,75 @@ def store(file, dic):
         pickle.dump(dic, f)
 
 
-def combine(scripts, stdout, stderr):
-    """
-    Combines the body of multiple job scripts into a single body where every script
-     is executed in a separate sub shell in the same folder as the original script.
-    :param scripts: List of (script path, script body) tuples
-    :param stdout: File for the std out
-    :param stderr:
-    :return:
-    """
-    combined = ''
+def combine(jobs):
+    assert len(jobs) > 0
 
-    for job_file, task in scripts:
-        folder = abs_folder(job_file)
-        combined += 'cd %s\n' % folder  # cd to folder of original script
-        combined += '(%s) 1>%s 2>%s\n' % (task, stdout, stderr)  # execute script in sub-shell and pipe output to files
+    # all scripts have params and manager in common or they would not be combinable
+    params = jobs[0].params
+    manager = Job.managers[jobs[0].manager]
 
-    return combined
+    # properties of the combined job
+    time = sum(job.time for job in jobs)
+    stdout = 'job.out'
+    stderr = 'job.err'
+
+    # find longest common substring of the names
+    best_match = jobs[0].name
+    for job in jobs:
+        best_match = SequenceMatcher(None, job.name, best_match) \
+            .find_longest_match(0, len(job.name), 0, len(best_match)).b
+    name = best_match if best_match.strip() != '' else 'Job'
+
+    c_job = Job(None, name, None, time, stdout, stderr, params, manager)
+
+    # create script for combined job that calls every original script in its working directory
+    c_script = ''
+    for job in jobs:
+        c_script += 'cd %s\n' % job.directory  # change to working directory
+        c_script += '"./%s"' % job.file  # execute script
+        if job.stdout is not None:
+            c_script += ' >%s'  # pipe stdout
+        if job.stderr is not None:
+            c_script += ' 2>%s'  # pipe stderr
+        c_script += '\n\n'
+
+    return c_job, c_script
+
+
+def partition(jobs, tmax, tmin, n):
+    # TODO implement
+    return [jobs]
 
 
 def queue(args):
     current_jobs = load(args.storage_file)
 
     dir_counter = 0
-    for k, v in dic.items():
-        params = dict(k)
-        combined = combine(v, params['output'], params['error'])  # TODO Time constraint -t
-        script_dir = './scripts/%02i' % dir_counter
-        dir_counter += 1
-        os.makedirs(script_dir, exist_ok=True)
-        with open('%s/submit.job' % script_dir, 'w+') as job:
-            # print header
-            job.write('#!/bin/bash -x\n')
-            for p in params.items():
-                print(p)
-                if p[1] is None:
-                    job.write('#SBATCH --%s\n' % p[0])
-                elif p[0] == 'time':
-                    time = to_slurm_time(from_slurm_time(p[1]) * len(v))
-                    job.write('#SBATCH --time=%s\n' % time)
-                else:
-                    job.write('#SBATCH --%s=%s\n' % p)
 
-            # print scripts
-            job.write(combined)
+    for similar_jobs in current_jobs.values():
+        # partition jobs based on constraints
+        part = partition(similar_jobs, args.max_time, args.min_time, args.parallel)
+        # combine scripts in same partition
+        combined = map(combine, part)
 
-        # TODO Call sbatch for script_dir/submit.job' % hash(k)
-    print('Dispatched queue')
+        # create separate sub folder for each script and write them to files
+        for job, script in combined:
+            script_dir = path.join(args.directory, '%02i' % dir_counter)
+            dir_counter += 1
+            os.makedirs(script_dir, exist_ok=True)
+
+            job.file = '%s/submit.job' % script_dir
+            job.directory = script_dir
+
+            # write directives and combined script to file
+            with open(job.file, 'w+') as f:
+                f.write(job.to_string())
+                f.write('\n')
+                f.write(script)
+
+            if not args.no_dispatch:
+                # TODO dispatch script
+                pass
 
 
 def add(args):

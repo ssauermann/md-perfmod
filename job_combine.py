@@ -23,12 +23,15 @@ class Job:
             directive='#SBATCH',
             name_args=['job-name', 'J'],
             time_args=['time', 't'],
-            time_formats=['%d-%H:%M:%S', '%d-%H:%M', '%d-%H', '%H:%M:%S', '%M:%S', '%M'],
+            time_formats=[
+                # '%d-%H:%M:%S', '%d-%H:%M', '%d-%H', # TODO Date does not work with the value zero
+                '%H:%M:%S', '%M:%S', '%M'
+            ],
             stdout_args=['output', 'o'],
             stderr_args=['error', 'e'],
             directory_args=['chdir', 'D'],
-            arg_regex=['--(?<arg>.+?)=(?<val>.*?)[\ \t]*$', '(?<!-)-(?!-)(?<arg>.+?)[\ \t]+(?<val>.+?)[\ \t]*$'],
-            flag_regex=['--(?<arg>[^=\ ]+?)[\ \t]*$', '(?<!-)-(?!-)(?<arg>[^=\ ]+?)[\ \t]*$'],
+            arg_regex=['--(?P<arg>.+?)=(?P<val>.*?)[\ \t]*$', '(?<!-)-(?!-)(?P<arg>.+?)[\ \t]+(?P<val>.+?)[\ \t]*$'],
+            flag_regex=['--(?P<arg>[^=\ ]+?)[\ \t]*$', '(?<!-)-(?!-)(?P<arg>[^=\ ]+?)[\ \t]*$'],
             arg_format=['--%s=%s', '-%s %s'],
             flag_format=['--%s', '-%s'],
         ),
@@ -42,8 +45,8 @@ class Job:
             stdout_args=['output'],
             stderr_args=['error'],
             directory_args=['initialdir'],
-            arg_regex=['(?<=[\ \t])(?<arg>.+?)[\ \t]*=[\ \t]*(?<val>.+?)[\ \t]*$'],
-            flag_regex=['^#@[\ \t]+(?<arg>[^=\ ]+?)[\ \t]*$'],
+            arg_regex=['(?<=[\ \t])(?P<arg>.+?)[\ \t]*=[\ \t]*(?P<val>.+?)[\ \t]*$'],
+            flag_regex=['^#@[\ \t]+(?P<arg>[^=\ ]+?)[\ \t]*$'],
             arg_format=['%s = %s'],
             flag_format=['%s'],
         ),
@@ -60,7 +63,7 @@ class Job:
         self.time = time
         self.stdout = stdout
         self.stderr = stderr
-        self.params = params
+        self.params = tuple(sorted(params, key=lambda x: x[0]))
         self.manager = manager
 
     def __hash__(self):
@@ -75,25 +78,24 @@ class Job:
     def to_string(self):
         m = Job.managers[self.manager]
 
-        def dformat(args, val, can_be_flag=False):
-            arg = args[0]
+        def dformat(arg, val, can_be_flag=False):
             if val is None:
                 if can_be_flag:
-                    return m.directive + ' ' + (m.flag_format[0] % (arg, val)) + '\n'
+                    return m.directive + ' ' + (m.flag_format[0] % arg) + '\n'
                 else:
                     return ''  # exclude
             else:
-                return m.directive + ' ' + (m.arg_format[0] % arg) + '\n'
+                return m.directive + ' ' + (m.arg_format[0] % (arg, val)) + '\n'
 
         ret = '#!/bin/bash -x\n'
-        ret += dformat(m.name_args, self.name)
-        ret += dformat(m.time_args, Job.str_from_timedelta(self.time, m.time_formats[0]))
-        ret += dformat(m.name_args, self.directory)
-        ret += dformat(m.stdout_args, self.stdout)
-        ret += dformat(m.stderr_args, self.stderr)
+        ret += dformat(m.name_args[0], self.name)
+        ret += dformat(m.time_args[0], Job.str_from_timedelta(self.time, m.time_formats[0]))
+        ret += dformat(m.directory_args[0], self.directory)
+        ret += dformat(m.stdout_args[0], self.stdout)
+        ret += dformat(m.stderr_args[0], self.stderr)
 
-        for key, val in self.params:
-            ret += dformat(key, val, can_be_flag=True)
+        for key, value in self.params:
+            ret += dformat(key, value, can_be_flag=True)
 
         return ret
 
@@ -142,10 +144,14 @@ class Job:
         :param workload_manager: Name of the workload manager this script is for
         :return: Job object
         """
-        try:
-            manager = Job.managers[workload_manager]
-        except KeyError:
-            raise ValueError("Workload manager not supported: %s" % workload_manager)
+        if workload_manager is not None:
+            try:
+                manager = Job.managers[workload_manager]
+                print('Using workload manager: %s' % manager.name)
+            except KeyError:
+                raise ValueError('Workload manager not supported: %s' % workload_manager)
+        else:
+            manager = None
 
         directory = abs_folder(job_file)
         name = None
@@ -167,6 +173,7 @@ class Job:
                         for wm in Job.managers.values():
                             if line.startswith(wm.directive):
                                 manager = wm
+                                print('Inferred workload manager: %s' % manager.name)
                                 break
 
                     if not line.startswith(manager.directive):
@@ -184,7 +191,11 @@ class Job:
                         raise RuntimeError('Can not process directive `%s`' % line)
 
                     # get matching results from capture groups; val is None for flags
-                    arg, val = match.group('arg', 'val')
+                    arg = match.group('arg')
+                    try:
+                        val = match.group('val')
+                    except IndexError:
+                        val = None
 
                     if arg in manager.time_args:
                         time = Job.str_to_timedelta(val, manager.time_formats)
@@ -207,9 +218,6 @@ class Job:
 
                 else:  # script lines
                     pass
-
-        # sort parameter list [(arg, val)...] by arg and convert to a tuple
-        params = (sorted(params, key=lambda x: x[0]))
 
         if manager is None:
             raise ValueError('`%s` is not a supported job file' % job_file)
@@ -297,18 +305,21 @@ def combine(jobs):
 
     # all scripts have params and manager in common or they would not be combinable
     params = jobs[0].params
-    manager = Job.managers[jobs[0].manager]
+    manager = jobs[0].manager
 
     # properties of the combined job
-    time = sum(job.time for job in jobs)
+    time = timedelta()
+    for job in jobs:
+        time += job.time
     stdout = 'job.out'
     stderr = 'job.err'
 
     # find longest common substring of the names
     best_match = jobs[0].name
     for job in jobs:
-        best_match = SequenceMatcher(None, job.name, best_match) \
-            .find_longest_match(0, len(job.name), 0, len(best_match)).b
+        match = SequenceMatcher(None, job.name, best_match) \
+            .find_longest_match(0, len(job.name), 0, len(best_match))
+        best_match = jobs[0].name[match.a:match.a + match.size]
     name = best_match if best_match.strip() != '' else 'Job'
 
     c_job = Job(None, name, None, time, stdout, stderr, params, manager)
@@ -316,12 +327,12 @@ def combine(jobs):
     # create script for combined job that calls every original script in its working directory
     c_script = ''
     for job in jobs:
-        c_script += 'cd %s\n' % job.directory  # change to working directory
-        c_script += '"./%s"' % job.file  # execute script
+        c_script += 'cd "%s"\n' % job.directory  # change to working directory
+        c_script += '"%s"' % job.file  # execute script (file path is absolute)
         if job.stdout is not None:
-            c_script += ' >%s'  # pipe stdout
+            c_script += ' >%s' % stdout  # pipe stdout
         if job.stderr is not None:
-            c_script += ' 2>%s'  # pipe stderr
+            c_script += ' 2>%s' % stderr # pipe stderr
         c_script += '\n\n'
 
     return c_job, c_script
@@ -345,11 +356,11 @@ def queue(args):
 
         # create separate sub folder for each script and write them to files
         for job, script in combined:
-            script_dir = path.join(args.directory, '%02i' % dir_counter)
+            script_dir = abs_path(path.join(args.directory, '%02i' % dir_counter))
             dir_counter += 1
             os.makedirs(script_dir, exist_ok=True)
 
-            job.file = '%s/submit.job' % script_dir
+            job.file = path.join(script_dir, 'submit.job')
             job.directory = script_dir
 
             # write directives and combined script to file
@@ -360,6 +371,7 @@ def queue(args):
 
             if not args.no_dispatch:
                 # TODO dispatch script
+                # os.system(Job.managers[job.manager].dispatch_command)
                 pass
 
 
@@ -376,7 +388,14 @@ def add(args):
 def status(args):
     jobs = load(args.storage_file)
     n_jobs = sum([len(v) for v in jobs.values()])
-    times = [Job.str_from_timedelta(sum(job.time for job in v), k.manager) for k, v in jobs.items()]
+
+    times = []
+    for k, v in jobs.items():
+        time_format = Job.managers[k.manager].time_formats[0]
+        time_sum = timedelta()
+        for job in v:
+            time_sum += job.time
+        times.append(Job.str_from_timedelta(time_sum, time_format))
 
     min_combined_jobs = len(jobs)
 

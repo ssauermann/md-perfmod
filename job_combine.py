@@ -1,11 +1,12 @@
 import argparse
 import pickle
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from datetime import datetime
 from datetime import timedelta
 
+import os
 import re
-from os import path, makedirs
+from os import path
 
 
 class Job:
@@ -57,6 +58,15 @@ class Job:
         self.params = params
         self.manager = manager
 
+    def __hash__(self):
+        return hash((self.manager, self.params))
+
+    def __eq__(self, other):
+        return (self.manager, self.params) == (other.manager, other.params)
+
+    def __ne__(self, other):
+        return not (self == other)
+
     @staticmethod
     def str_to_timedelta(time_str, formats):
         """
@@ -92,10 +102,10 @@ class Job:
         """
         epoch = datetime.utcfromtimestamp(0)
         time = epoch + time_delta
-        time.strftime(time_format)
+        return time.strftime(time_format)
 
     @classmethod
-    def from_file(cls, job_file, workload_manager = None):
+    def from_file(cls, job_file, workload_manager=None):
         """
         Parses a job file to a Job object
         :param job_file: Path to the job file
@@ -178,25 +188,43 @@ class Job:
 
 
 def read_args():
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-s', '--storage-file', default='job_combine.storage',
-                        help='Path to the file the added scripts are stored [default: %(default)s]')
-    parser.add_argument('-v', '--verbose', action='count', help='Enables verbose output')
+    parser = argparse.ArgumentParser(description='Combines multiple job files into a single job.')
+    subparsers = parser.add_subparsers(help='Select the operation to perform')
 
-    subparsers = parser.add_subparsers(help='')
-
-    parser_queue = subparsers.add_parser('queue', help='')
-    parser_add = subparsers.add_parser('add', help='')
-    parser_status = subparsers.add_parser('status', help='')
-    parser_clear = subparsers.add_parser('clear', help='')
+    parser_queue = subparsers.add_parser('queue', help='Combines currently stored jobs to as few as possible job files '
+                                                       'and dispatches them to the queue of the workload manager')
+    parser_add = subparsers.add_parser('add', help='Add a job for combination with the other stored jobs')
+    parser_status = subparsers.add_parser('status', help='Displays information about the currently stored jobs and'
+                                                         ' which can be combined')
+    parser_clear = subparsers.add_parser('clear', help='Removes all currently stored jobs')
 
     parser_queue.set_defaults(func=queue)
     parser_add.set_defaults(func=add)
     parser_status.set_defaults(func=status)
     parser_clear.set_defaults(func=clear)
 
+    # Arguments for all modes
+    parser.add_argument('-s', '--storage-file', default='job_combine.storage',
+                        help='Path to the file the added scripts are stored [default: %(default)s]')
+    parser.add_argument('-v', '--verbose', action='count', help='Increases verbosity level')
+
+    # Arguments for 'add'
     parser_add.add_argument('job_file', help='Job file containing a single task')
-    parser_queue.add_argument('-t', '--time-limit', help='Max time for a single combined job')
+    parser_add.add_argument('-w', '--workload-manager', help='Specifies the type of the job file. Will be inferred from'
+                                                             ' the directives in the file, if not set. Valid values are'
+                                                             ': [%s]' % (', '.join(Job.managers.keys())))
+
+    # Arguments for 'queue'
+    parser_queue.add_argument('-t', '--max-time', help='No combined job will have a runtime longer than this value')
+    parser_queue.add_argument('-m', '--min-time', help='No combined job will have a runtime with less than this value')
+    parser_queue.add_argument('-p', '--parallel', default=1,
+                              help='Tries to distribute the jobs equally to `p` scripts. Scripts that can not be'
+                                   ' combined may increase and constraints may reduce the number of created'
+                                   ' script files. [default: %(default)i]')
+
+    # Arguments for 'status'
+
+    # Arguments for 'clear'
 
     mode = parser.parse_args()
 
@@ -217,7 +245,7 @@ def load(file):
             f.seek(0)
             return pickle.load(f)
         except EOFError:
-            return {}
+            return defaultdict(list)
 
 
 def store(file, dic):
@@ -227,18 +255,26 @@ def store(file, dic):
 
 
 def combine(scripts, stdout, stderr):
+    """
+    Combines the body of multiple job scripts into a single body where every script
+     is executed in a separate sub shell in the same folder as the original script.
+    :param scripts: List of (script path, script body) tuples
+    :param stdout: File for the std out
+    :param stderr:
+    :return:
+    """
     combined = ''
 
     for job_file, task in scripts:
         folder = abs_folder(job_file)
-        combined += 'cd %s\n' % folder # cd to folder of original script
-        combined += '(%s) 1>%s 2>%s\n' % (task, stdout, stderr) # execute script in sub-shell and pipe output to files
+        combined += 'cd %s\n' % folder  # cd to folder of original script
+        combined += '(%s) 1>%s 2>%s\n' % (task, stdout, stderr)  # execute script in sub-shell and pipe output to files
 
     return combined
 
 
 def queue(args):
-    dic = load(args.storage_file)
+    current_jobs = load(args.storage_file)
 
     dir_counter = 0
     for k, v in dic.items():
@@ -246,7 +282,7 @@ def queue(args):
         combined = combine(v, params['output'], params['error'])  # TODO Time constraint -t
         script_dir = './scripts/%02i' % dir_counter
         dir_counter += 1
-        makedirs(script_dir, exist_ok=True)
+        os.makedirs(script_dir, exist_ok=True)
         with open('%s/submit.job' % script_dir, 'w+') as job:
             # print header
             job.write('#!/bin/bash -x\n')
@@ -268,66 +304,27 @@ def queue(args):
 
 
 def add(args):
-    dic = load(args.storage_file)
+    current_jobs = load(args.storage_file)
 
-    key_list = []
-    task = ''
-    with open(args.job_file, 'r') as f:
-        for line in f:
-            if line.startswith('#SBATCH '):
-                param = line.lstrip('#SBATCH --').rstrip('\n').split('=', maxsplit=1)
-                param_key = param[0]
-                param_val = param[1] if len(param) > 1 else ''
-                key_list.append((param_key, param_val))
-            elif not line.startswith('#'):
-                task += line
+    job = Job.from_file(args.job_file, args.workload_manager)
+    current_jobs[job].append(job)
 
-    key_list.sort(key=lambda x: x[0])
-    key = tuple(key_list)
-
-    if key not in dic.keys():
-        dic[key] = []
-    dic[key].append((os.path.abspath(args.job_file), task))
-    store(args.storage_file, dic)
+    store(args.storage_file, current_jobs)
     print('Added new entry')
 
 
-def to_slurm_time(time):
-    # support only HH:MM:SS
-    m, s = divmod(time, 60)
-    h, m = divmod(m, 60)
-    return "%i:%i:%i" % (h, m, s)
-
-
-def from_slurm_time(time_str):  # TODO not all valid time formats of slurm scripts covered
-    d = 0
-    if '-' in time_str:
-        d, time_str = time_str.rsplit('-')
-    h, m, s = time_str.split(':')
-    return int(d) * 24 * 3600 + int(h) * 3600 + int(m) * 60 + int(s)
-
-
 def status(args):
-    dic = load(args.storage_file)
-    n_tasks = sum([len(v) for v in dic.values()])
-    total_time = 0
-    for k, v in dic.items():
-        time_str = next(param_value for (param_key, param_value) in k if param_key == 'time')
-        time_sec = from_slurm_time(time_str)
-        total_time += time_sec * len(v)
-    total_time_str = to_slurm_time(total_time)
+    jobs = load(args.storage_file)
+    n_jobs = sum([len(v) for v in jobs.values()])
+    times = [Job.str_from_timedelta(sum(job.time for job in v), k.manager) for k, v in jobs.items()]
 
-    dif_tasks = len(dic)
+    min_combined_jobs = len(jobs)
 
-    print('Stored %i tasks with a total time of %s combinable to %i tasks.' % (n_tasks, total_time_str, dif_tasks))
+    print('Stored %i jobs that can be combined to %i tasks with the times [%s].'
+          % (n_jobs, min_combined_jobs, ', '.join(times)))
+
     if int(args.verbose) >= 1:
-        l = []
-        for k in dic.keys():
-            for p, _ in k:
-                l.append(p)
-        print('\nParameters considered for combining runs:\n', set(l))
-    if int(args.verbose) >= 2:
-        print('\n', dic)
+        print('\n', jobs.items())
 
 
 def clear(args):

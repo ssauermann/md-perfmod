@@ -379,6 +379,7 @@ def add(args):
     current_jobs = load(args.storage_file)
 
     job = Job.from_file(args.job_file, args.workload_manager)
+    os.chmod(job.file, os.stat(job.file).st_mode | 0o111)  # set script executable for everyone
     current_jobs[job].append(job)
 
     store(args.storage_file, current_jobs)

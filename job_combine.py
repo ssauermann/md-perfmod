@@ -1,7 +1,6 @@
 import argparse
 import pickle
 from collections import namedtuple, defaultdict
-from datetime import datetime
 from datetime import timedelta
 from difflib import SequenceMatcher
 
@@ -23,10 +22,7 @@ class Job:
             directive='#SBATCH',
             name_args=['job-name', 'J'],
             time_args=['time', 't'],
-            time_formats=[
-                # '%d-%H:%M:%S', '%d-%H:%M', '%d-%H', # TODO Date does not work with the value zero
-                '%H:%M:%S', '%M:%S', '%M'
-            ],
+            time_formats=['%D-%H:%M:%S', '%D-%H:%M', '%D-%H', '%H:%M:%S', '%M:%S', '%M'],
             stdout_args=['output', 'o'],
             stderr_args=['error', 'e'],
             directory_args=[None, 'D'],  # chdir long option does not exist on coolmuc?
@@ -54,6 +50,8 @@ class Job:
         # Lists have to be of the same length. Use None to fill missing values.
         # Regex expressions are applied to the complete line including the directive
         # Capture groups must be named 'arg' and 'val' for the arg_regex and 'arg' for the flag_regex
+        # Time formats can contain %d, %H, %M, %S for days, hours, minutes and seconds.
+        # The first time format must contain s, m + s, h + m + s or d + h + m + s
     }
 
     def __init__(self, file, name, directory, time, stdout, stderr, params, manager):
@@ -106,25 +104,34 @@ class Job:
         """
         Converts a string representation to a time delta
         :param time_str: Time string
-        :param formats: Time format
+        :param formats: Time formats
         :return: Time delta
         """
-        epoch = datetime.utcfromtimestamp(0)
-        time = None
 
-        # find the first matching time format
         for f in formats:
-            try:
-                time = datetime.strptime(time_str, f)
-                break
-            except ValueError:
-                pass
+            pattern = f.replace('%d', '(?P<d>[0-9]+)')
+            pattern = pattern.replace('%H', '(?P<h>[0-9]+)')
+            pattern = pattern.replace('%M', '(?P<m>[0-9]+)')
+            pattern = pattern.replace('%S', '(?P<s>[0-9]+)')
+            match = re.match(pattern, time_str)
 
-        # no format matched
-        if time is None:
-            raise ValueError('Not a supported time format: `%s`' % time_str)
+            if match is None:
+                continue
 
-        return time - epoch
+            def get_group(grp):
+                try:
+                    return match.group(grp)
+                except IndexError:
+                    return 0
+
+            days = int(get_group('d'))
+            hours = int(get_group('h'))
+            minutes = int(get_group('m'))
+            seconds = int(get_group('s'))
+
+            return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+
+        raise ValueError('`%s` is not a supported time format: %s' % (time_str, ', '.join(formats)))
 
     @staticmethod
     def str_from_timedelta(time_delta, time_format):
@@ -134,9 +141,32 @@ class Job:
         :param time_format: Time format
         :return: Time string
         """
-        epoch = datetime.utcfromtimestamp(0)
-        time = epoch + time_delta
-        return time.strftime(time_format)
+
+        remaining_time = time_delta
+        days = hours = minutes = 0
+
+        remaining_time.total_seconds()
+
+        if '%D' in time_format:
+            days = remaining_time.days
+            remaining_time -= timedelta(days=days)
+
+        if '%H' in time_format:
+            hours = int(remaining_time.total_seconds() / (60 * 60))
+            remaining_time -= timedelta(hours=hours)
+
+        if '%M' in time_format:
+            minutes = int(remaining_time.total_seconds() / 60)
+            remaining_time -= timedelta(minutes=minutes)
+
+        seconds = remaining_time.total_seconds()
+
+        formatted = time_format.replace('%D', '%02d' % days)
+        formatted = formatted.replace('%H', '%02d' % hours)
+        formatted = formatted.replace('%M', '%02d' % minutes)
+        formatted = formatted.replace('%S', '%02d' % seconds)
+
+        return formatted
 
     @classmethod
     def from_file(cls, job_file, workload_manager=None):

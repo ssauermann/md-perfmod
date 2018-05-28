@@ -168,6 +168,13 @@ class Job:
 
         return formatted
 
+    @staticmethod
+    def sum_times(job_list):
+        time = timedelta()
+        for job in job_list:
+            time += job.time
+        return time
+
     @classmethod
     def from_file(cls, job_file, workload_manager=None):
         """
@@ -297,7 +304,7 @@ def read_args():
                                                                            ' [default: %(default)s]')
     parser_queue.add_argument('-t', '--max-time', help='No combined job will have a runtime longer than this value')
     parser_queue.add_argument('-m', '--min-time', help='No combined job will have a runtime with less than this value')
-    parser_queue.add_argument('-p', '--parallel', default=1,
+    parser_queue.add_argument('-p', '--parallel', default=1, type=int,
                               help='Tries to distribute the jobs equally to `p` scripts. Scripts that can not be'
                                    ' combined may increase and constraints may reduce the number of created'
                                    ' script files. [default: %(default)i]')
@@ -346,9 +353,7 @@ def combine(jobs):
     manager = jobs[0].manager
 
     # properties of the combined job
-    time = timedelta()
-    for job in jobs:
-        time += job.time
+    time = Job.sum_times(jobs)
     stdout = 'job.out'
     stderr = 'job.err'
 
@@ -376,9 +381,69 @@ def combine(jobs):
     return c_job, c_script
 
 
-def partition(jobs, tmax, tmin, n):
-    # TODO implement
-    return [jobs]
+def partition(jobs, max_time, min_time, parallel):
+    assert len(jobs) > 0
+
+    time_format = '%H:%M:%S'
+
+    if max_time is None:
+        tmax = timedelta.max
+    else:
+        tmax = Job.str_to_timedelta(max_time, [time_format])
+    if min_time is None:
+        tmin = timedelta()
+    else:
+        tmin = Job.str_to_timedelta(min_time, [time_format])
+
+    if tmax < tmin:
+        raise ValueError('Max time has to be larger than min time')
+
+    print('\nPartitioning results for %i combinable scripts:' % len(jobs))
+
+    # greedy balanced partitioning into n groups considering the time constraints
+    def do_partition(target_n):
+        part = []
+
+        desc_jobs = sorted(jobs, key=lambda x: x.time)
+
+        # create each partition and fill them with the n largest items
+        for i in range(target_n):
+            part.append([desc_jobs.pop(0)])
+
+        # iterate over the remaining items and fill the largest item into the smallest partition
+        for j in desc_jobs:
+            smallest_part = min(part, key=lambda x: Job.sum_times(x))
+            smallest_part.append(j)
+
+        # validate time constraints
+        for p in part:
+            time = Job.sum_times(p)
+            if time > tmax:
+                if target_n >= len(jobs):
+                    print('WARNING: Could not fulfill max_time = %s constraint as there exists a single script with a'
+                          ' longer time.' % max_time)
+                    break
+                return do_partition(target_n + 1)  # need more partitions
+            elif time < tmin:
+                if target_n == 1:
+                    print(
+                        'WARNING: Could not fulfill min_time = %s constraint as there are not enough combinable scripts'
+                        ' to reach this time' % min_time)
+                    break
+                return do_partition(target_n - 1)  # need fewer partitions
+
+        # constraint check successful
+        return part
+
+    target_number = min(parallel, len(jobs))
+    part_result = do_partition(target_number)
+    if len(part_result) > parallel > 1:
+        print('WARNING: Could not partition the jobs to less than %i partitions. Try relaxing the max_time'
+              ' constraint.' % parallel)
+    times = [Job.str_from_timedelta(Job.sum_times(p), time_format) for p in part_result]
+    print('%i partitions with times: %s' % (len(part_result), ', '.join(times)))
+
+    return part_result
 
 
 def queue(args):
@@ -431,9 +496,7 @@ def status(args):
     times = []
     for k, v in jobs.items():
         time_format = Job.managers[k.manager].time_formats[0]
-        time_sum = timedelta()
-        for job in v:
-            time_sum += job.time
+        time_sum = Job.sum_times(v)
         times.append(Job.str_from_timedelta(time_sum, time_format))
 
     min_combined_jobs = len(jobs)

@@ -29,7 +29,7 @@ class Job:
             ],
             stdout_args=['output', 'o'],
             stderr_args=['error', 'e'],
-            directory_args=['chdir', 'D'],
+            directory_args=[None, 'D'],  # chdir long option does not exist on coolmuc?
             arg_regex=['--(?P<arg>.+?)=(?P<val>.*?)[\ \t]*$', '(?<!-)-(?!-)(?P<arg>.+?)[\ \t]+(?P<val>.+?)[\ \t]*$'],
             flag_regex=['--(?P<arg>[^=\ ]+?)[\ \t]*$', '(?<!-)-(?!-)(?P<arg>[^=\ ]+?)[\ \t]*$'],
             arg_format=['--%s=%s', '-%s %s'],
@@ -78,24 +78,26 @@ class Job:
     def to_string(self):
         m = Job.managers[self.manager]
 
-        def dformat(arg, val, can_be_flag=False):
+        def dformat(args, val):
             if val is None:
-                if can_be_flag:
-                    return m.directive + ' ' + (m.flag_format[0] % arg) + '\n'
-                else:
-                    return ''  # exclude
+                return ''  # exclude
             else:
-                return m.directive + ' ' + (m.arg_format[0] % (arg, val)) + '\n'
+                for ai, arg in enumerate(args):
+                    if arg is not None:
+                        return m.directive + ' ' + (m.arg_format[ai] % (arg, val)) + '\n'
 
         ret = '#!/bin/bash -x\n'
-        ret += dformat(m.name_args[0], self.name)
-        ret += dformat(m.time_args[0], Job.str_from_timedelta(self.time, m.time_formats[0]))
-        ret += dformat(m.directory_args[0], self.directory)
-        ret += dformat(m.stdout_args[0], self.stdout)
-        ret += dformat(m.stderr_args[0], self.stderr)
+        ret += dformat(m.name_args, self.name)
+        ret += dformat(m.time_args, Job.str_from_timedelta(self.time, m.time_formats[0]))
+        ret += dformat(m.directory_args, self.directory)
+        ret += dformat(m.stdout_args, self.stdout)
+        ret += dformat(m.stderr_args, self.stderr)
 
-        for key, value in self.params:
-            ret += dformat(key, value, can_be_flag=True)
+        for key, arg_index, value in self.params:
+            if value is None:
+                ret += m.directive + ' ' + (m.flag_format[arg_index] % key) + '\n'
+            else:
+                ret += m.directive + ' ' + (m.arg_format[arg_index] % (key, value)) + '\n'
 
         return ret
 
@@ -181,10 +183,16 @@ class Job:
                         continue
 
                     # apply all arg and flag regex' to the line
-                    matches = (re.search(regex, line) for regex in manager.arg_regex + manager.flag_regex)
+                    matches = [re.search(regex, line) for regex in manager.arg_regex + manager.flag_regex]
 
+                    match = None
+                    arg_index = None
                     # get the first successful match
-                    match = next((match for match in matches if match is not None), None)
+                    for i, m in enumerate(matches):
+                        if m is not None:
+                            match = m
+                            arg_index = i % len(manager.arg_regex)
+                            break
 
                     # no valid match -> can not continue
                     if match is None:
@@ -197,13 +205,13 @@ class Job:
                     except IndexError:
                         val = None
 
-                    if arg in manager.time_args:
+                    if arg == manager.time_args[arg_index]:
                         time = Job.str_to_timedelta(val, manager.time_formats)
-                    elif arg in manager.stdout_args:
+                    elif arg == manager.stdout_args[arg_index]:
                         stdout = val
-                    elif arg in manager.stderr_args:
+                    elif arg == manager.stderr_args[arg_index]:
                         stderr = val
-                    elif arg in manager.directory_args:
+                    elif arg == manager.directory_args[arg_index]:
                         # working dir could be given relative to job file
                         d = path.expandvars(path.expanduser(arg))  # expand ~/ or env. variables
                         if path.isabs(d):
@@ -214,7 +222,7 @@ class Job:
                         name = val
                     else:
                         # Store argument, value pair to be able to decide which scripts can be combined
-                        params.append((arg, val))
+                        params.append((arg, arg_index, val))
 
                 else:  # script lines
                     pass
@@ -332,7 +340,7 @@ def combine(jobs):
         if job.stdout is not None:
             c_script += ' >%s' % stdout  # pipe stdout
         if job.stderr is not None:
-            c_script += ' 2>%s' % stderr # pipe stderr
+            c_script += ' 2>%s' % stderr  # pipe stderr
         c_script += '\n\n'
 
     return c_job, c_script

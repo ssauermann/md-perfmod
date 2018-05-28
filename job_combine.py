@@ -308,6 +308,9 @@ def read_args():
                               help='Tries to distribute the jobs equally to `p` scripts. Scripts that can not be'
                                    ' combined may increase and constraints may reduce the number of created'
                                    ' script files. [default: %(default)i]')
+    parser_queue.add_argument('--break-max', action='store_true',
+                              help='Break the max_time constraint instead of the min_time constraint if not both can be'
+                                   ' fulfilled at the same time.')
 
     # Arguments for 'status'
 
@@ -381,7 +384,7 @@ def combine(jobs):
     return c_job, c_script
 
 
-def partition(jobs, max_time, min_time, parallel):
+def partition(jobs, max_time, min_time, parallel, break_max=True):
     assert len(jobs) > 0
 
     time_format = '%H:%M:%S'
@@ -401,7 +404,7 @@ def partition(jobs, max_time, min_time, parallel):
     print('\nPartitioning results for %i combinable scripts:' % len(jobs))
 
     # greedy balanced partitioning into n groups considering the time constraints
-    def do_partition(target_n):
+    def do_partition(target_n, previous=-1):
         part = []
 
         desc_jobs = sorted(jobs, key=lambda x: x.time)
@@ -423,14 +426,22 @@ def partition(jobs, max_time, min_time, parallel):
                     print('WARNING: Could not fulfill max_time = %s constraint as there exists a single script with a'
                           ' longer time.' % max_time)
                     break
-                return do_partition(target_n + 1)  # need more partitions
+                if previous == target_n + 1 and break_max:  # fluctuating around target_n and target_n + 1
+                    print('WARNING: Could not fulfill both time constraints simultaneously.'
+                          ' Breaking the max_time = %s constraint.' % max_time)
+                    break
+                return do_partition(target_n + 1, target_n)  # need more partitions
             elif time < tmin:
                 if target_n == 1:
                     print(
                         'WARNING: Could not fulfill min_time = %s constraint as there are not enough combinable scripts'
-                        ' to reach this time' % min_time)
+                        ' to reach this time.' % min_time)
                     break
-                return do_partition(target_n - 1)  # need fewer partitions
+                if previous == target_n - 1 and not break_max:  # fluctuating around target_n and target_n + 1
+                    print('WARNING: Could not fulfill both time constraints simultaneously.'
+                          ' Breaking the min_time = %s constraint.' % min_time)
+                    break
+                return do_partition(target_n - 1, target_n)  # need fewer partitions
 
         # constraint check successful
         return part
@@ -455,7 +466,7 @@ def queue(args):
 
     for similar_jobs in current_jobs.values():
         # partition jobs based on constraints
-        part = partition(similar_jobs, args.max_time, args.min_time, args.parallel)
+        part = partition(similar_jobs, args.max_time, args.min_time, args.parallel, args.break_max)
         # combine scripts in same partition
         combined = map(combine, part)
 
@@ -474,10 +485,13 @@ def queue(args):
                 f.write('\n')
                 f.write(script)
 
-            print('Written script to %s' % job.file)
+            if int(args.verbose) >= 1:
+                print('Written script to %s' % job.file)
             if args.dispatch:
                 if os.system(Job.managers[job.manager].dispatch_command + ' ' + job.file) == 0:
-                    print('Dispatching successful for: %s' % job.file)
+                    if int(args.verbose) >= 1:
+                        print('Dispatching successful for: %s' % job.file)
+    print('Done combining scripts.')
 
 
 def add(args):

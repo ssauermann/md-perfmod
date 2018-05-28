@@ -298,8 +298,8 @@ def read_args():
                                                              ': [%s]' % (', '.join(Job.managers.keys())))
 
     # Arguments for 'queue'
-    parser_queue.add_argument('--no-dispatch', action='store_true', help='Only create the combined scripts but do not'
-                                                                         ' dispatch them to the queue')
+    parser_queue.add_argument('--dispatch', action='store_true', help='Dispatch the combined scripts immediately after'
+                                                                      ' creating them')
     parser_queue.add_argument('-d', '--directory', default='scripts', help='Directory to store the combined scripts in'
                                                                            ' [default: %(default)s]')
     parser_queue.add_argument('-t', '--max-time', help='No combined job will have a runtime longer than this value')
@@ -451,6 +451,8 @@ def queue(args):
 
     dir_counter = 0
 
+    print('Combining scripts...')
+
     for similar_jobs in current_jobs.values():
         # partition jobs based on constraints
         part = partition(similar_jobs, args.max_time, args.min_time, args.parallel)
@@ -472,10 +474,10 @@ def queue(args):
                 f.write('\n')
                 f.write(script)
 
-            if not args.no_dispatch:
-                # TODO dispatch script
-                # os.system(Job.managers[job.manager].dispatch_command)
-                pass
+            print('Written script to %s' % job.file)
+            if args.dispatch:
+                if os.system(Job.managers[job.manager].dispatch_command + ' ' + job.file) == 0:
+                    print('Dispatching successful for: %s' % job.file)
 
 
 def add(args):
@@ -486,7 +488,7 @@ def add(args):
     current_jobs[job].append(job)
 
     store(args.storage_file, current_jobs)
-    print('Added new entry')
+    print('Added job successfully.')
 
 
 def status(args):

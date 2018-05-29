@@ -16,7 +16,7 @@
         <run>
             <currenttime>0</currenttime>
             <production>
-                <steps>1000</steps>
+                <steps>100</steps>
             </production>
         </run>
 
@@ -24,31 +24,13 @@
             <!-- Nparticles determined by the input file -->
             <temperature unit="reduced">0.95</temperature>
             <domain type="box">
-                <lx>40.0</lx>
-                <ly>80.0</ly>
-                <lz>40.0</lz>
+                <lx>100.0</lx>
+                <ly>100.0</ly>
+                <lz>100.0</lz>
             </domain>
 
             <components>
-                <moleculetype id="1" name="1CLJ">
-                    <site type="LJ126" id="1">
-                        <coords>
-                            <x>0.0</x>
-                            <y>0.0</y>
-                            <z>0.0</z>
-                        </coords>
-                        <mass>1.0</mass>
-                        <sigma>1.0</sigma>
-                        <epsilon>1.0</epsilon>
-                        <shifted>0</shifted>
-                    </site>
-                    <momentsofinertia rotaxes="xyz">
-                        <Ixx>0.0</Ixx>
-                        <Iyy>0.0</Iyy>
-                        <Izz>0.0</Izz>
-                    </momentsofinertia>
-                </moleculetype>
-
+                <include query="/components/moleculetype">./components-ljc-#lj-centers#.xml</include>
             </components>
 
             <phasespacepoint>
@@ -72,7 +54,8 @@
             -->
             <parallelisation type="DomainDecomposition"></parallelisation>
             <datastructure type="LinkedCells">
-                <cellsInCutoffRadius>1</cellsInCutoffRadius>
+                <traversalSelector>#traversal#</traversalSelector>
+                <cellsInCutoffRadius>#cellsInCutoff#</cellsInCutoffRadius>
             </datastructure>
             <cutoffs type="CenterOfMass">
                 <radiusLJ unit="reduced">#cutoff#</radiusLJ>

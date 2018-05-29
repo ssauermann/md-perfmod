@@ -25,10 +25,14 @@
     <parameterset name="input_param">
         <parameter name="density" type="float">0.1, 0.3, 0.5, 0.7, 0.9</parameter>
         <parameter name="cutoff" type="float">2.0, 3.0, 4.0, 5.0, 6.0</parameter>
-        <parameter name="ljcenters" type="int">1<!--, 2--></parameter>
+        <parameter name="ljcenters" type="int">1, 2, 3, 4, 5</parameter>
+        <parameter name="traversal" type="string">c08,c04,slice,ori,hs,mp<!--,nt,qui--></parameter>
+        <parameter name="cellsincutoff" mode="python">
+            { "mp" : (1, 2) }.get("${traversal}", tuple(1))
+        </parameter>
     </parameterset>
 
     <parameterset name="stat_param">
-        <parameter name="repeat" type="int">1, 2, 3, 4, 5</parameter>
+        <parameter name="repeat" mode="python">range(5)</parameter>
     </parameterset>
 </jube>

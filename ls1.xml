@@ -36,10 +36,12 @@
             <sub source="#density#">${density}</sub>
             <sub source="#cutoff#">${cutoff}</sub>
             <sub source="#lj-centers#">${ljcenters}</sub>
+            <sub source="#traversal#">${traversal}</sub>
+            <sub source="#cellsInCutoff#">${cellsincutoff}</sub>
         </substituteset>
 
         <!-- prepare submit script and submit the job to the batch system-->
-        <step name="exe" depend="compile" suffix="d${density}.c${cutoff}.r${repeat}">
+        <step name="exe" depend="compile">
             <use>config</use>
             <use from="params.xml">stat_param</use>
             <use from="params.xml">input_param</use>
@@ -85,6 +87,8 @@
                 <column>taskspernode</column>
                 <column>threadspertask</column>
                 <column>vectorize_code</column>
+                <column>traversal</column>
+                <column>cellspercutoff</column>
                 <column>density</column>
                 <column>cutoff</column>
                 <column>ljcenters</column>

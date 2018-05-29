@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<jube>
+    <parameterset name="user_param">
+        <parameter name="mardyn_dir" type="string">${jube_benchmark_home}/../ls1</parameter>
+        <parameter name="batch_command" type="string">python3 ${jube_benchmark_home}/job_combine.py add</parameter>
+        <parameter name="input_dir" type="string">input</parameter>
+        <parameter name="input_file" type="string">config.xml</parameter>
+    </parameterset>
+
+    <parameterset name="compile_param">
+        <parameter name="load_modules" type="string">module load gcc/7</parameter>
+        <parameter name="vectorize_code" type="string"><!--AVX2, -->KNL_MASK</parameter>
+    </parameterset>
+
+    <!-- initial parameterset with corresponding set in $JUBE_INCLUDE_PATH/platform.xml -->
+    <parameterset name="system_param" init_with="platform.xml">
+        <parameter name="nodes" type="int">1</parameter>
+        <parameter name="taskspernode" type="int">1</parameter>
+        <parameter name="threadspertask" type="int">256</parameter>
+        <parameter name="queue">mpp3</parameter>
+        <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file}</parameter>
+        <parameter name="timelimit">00:05:00</parameter>
+    </parameterset>
+
+    <parameterset name="input_param">
+        <parameter name="density" type="float">0.1, 0.3, 0.5, 0.7, 0.9</parameter>
+        <parameter name="cutoff" type="float">2.0, 3.0, 4.0, 5.0, 6.0</parameter>
+        <parameter name="ljcenters" type="int">1<!--, 2--></parameter>
+    </parameterset>
+
+    <parameterset name="stat_param">
+        <parameter name="repeat" type="int">1, 2, 3, 4, 5</parameter>
+    </parameterset>
+</jube>

@@ -27,12 +27,12 @@
         <parameter name="cutoff" type="float">2.0, 3.0, 4.0, 5.0, 6.0</parameter>
         <parameter name="ljcenters" type="int">1, 2, 3, 4, 5</parameter>
         <parameter name="traversal" type="string">c08,c04,slice,ori,hs,mp<!--,nt,qui--></parameter>
-        <parameter name="cellsincutoff" mode="python">
-            { "mp" : (1, 2) }.get("${traversal}", tuple(1))
+        <parameter name="cellsincutoff" type="int" mode="python">
+            { "mp" : "1, 2" }.get("${traversal}", "1")
         </parameter>
     </parameterset>
 
     <parameterset name="stat_param">
-        <parameter name="repeat" mode="python">range(5)</parameter>
+        <parameter name="repeat" type="int">1<!--, 2, 3, 4, 5--></parameter>
     </parameterset>
 </jube>

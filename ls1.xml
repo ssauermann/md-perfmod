@@ -1,118 +1,129 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jube>
-  <benchmark name="MarDyn" outpath="bench_run">
-    <comment>MarDyn performance modelling</comment>
+    <benchmark name="MarDyn" outpath="bench_run">
+        <comment>MarDyn performance modelling</comment>
 
-    <parameterset name="stat_param">
-      <parameter name="repeat" type="int">1, 2, 3, 4, 5</parameter>
-    </parameterset>
+        <parameterset name="stat_param">
+            <parameter name="repeat" type="int">1, 2, 3, 4, 5</parameter>
+        </parameterset>
 
-    <parameterset name="user_param">
-      <parameter name="mardyn_dir" type="string">${jube_benchmark_home}/../ls1</parameter>
-      <parameter name="input_dir" type="string">input</parameter>
-      <parameter name="input_file" type="string">config.xml</parameter>
-    </parameterset>
+        <parameterset name="user_param">
+            <parameter name="mardyn_dir" type="string">${jube_benchmark_home}/../ls1</parameter>
+            <parameter name="input_dir" type="string">input</parameter>
+            <parameter name="input_file" type="string">config.xml</parameter>
+        </parameterset>
 
-    <parameterset name="compile_param">
-      <parameter name="load_modules" type="string">module load gcc/7</parameter>
-      <parameter name="vectorize_code" type="string"><!--AVX2, -->KNL_MASK</parameter>
-    </parameterset> 
+        <parameterset name="compile_param">
+            <parameter name="load_modules" type="string">module load gcc/7</parameter>
+            <parameter name="vectorize_code" type="string"><!--AVX2, -->KNL_MASK</parameter>
+        </parameterset>
 
-    <!-- copy source code into the sandbox directory -->
-    <fileset name="source_code">
-      <copy>${mardyn_dir}/*</copy>
-    </fileset>
+        <!-- copy source code into the sandbox directory -->
+        <fileset name="source_code">
+            <copy>${mardyn_dir}/*</copy>
+        </fileset>
 
-    <!-- initial parameterset with corresponding set in
-    $JUBE_INCLUDE_PATH/platform.xml -->
-    <parameterset name="systemParameter" init_with="platform.xml">
-      <parameter name="nodes" type="int">1</parameter>
-      <parameter name="taskspernode" type="int">2</parameter> 
-      <parameter name="threadspertask" type="int">32</parameter>
-      <parameter name="queue">mpp3</parameter>
-      <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file} -n 2000</parameter>
-      <parameter name="timelimit">00:15:00</parameter>
-    </parameterset>
+        <!-- initial parameterset with corresponding set in
+        $JUBE_INCLUDE_PATH/platform.xml -->
+        <parameterset name="systemParameter" init_with="platform.xml">
+            <parameter name="nodes" type="int">1</parameter>
+            <parameter name="taskspernode" type="int">2</parameter>
+            <parameter name="threadspertask" type="int">32</parameter>
+            <parameter name="queue">mpp3</parameter>
+            <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file} -n 2000</parameter>
+            <parameter name="timelimit">00:15:00</parameter>
+        </parameterset>
 
-    <parameterset name="inputParam">
-      <parameter name="density" type="float">0.1, 0.3, 0.5, 0.7, 0.9</parameter>
-      <parameter name="cutoff" type="float">2.0, 3.0, 4.0, 5.0, 6.0</parameter>
-      <parameter name="ljcenters" type="int">1<!--, 2--></parameter>
-    </parameterset>
+        <parameterset name="inputParam">
+            <parameter name="density" type="float">0.1, 0.3, 0.5, 0.7, 0.9</parameter>
+            <parameter name="cutoff" type="float">2.0, 3.0, 4.0, 5.0, 6.0</parameter>
+            <parameter name="ljcenters" type="int">1<!--, 2--></parameter>
+        </parameterset>
 
-    <step name="compile">
-      <use>user_param</use>
-      <use>compile_param</use>
-      <use>source_code</use>
-      <do>${load_modules}</do>
-      <do>cd src; make clean; make TARGET=RELEASE PARTYPE=PAR OPENMP=1 CFG=icc-impi VECTORIZE_CODE=${vectorize_code} -j 28</do> 
-    </step>
+        <step name="compile">
+            <use>user_param</use>
+            <use>compile_param</use>
+            <use>source_code</use>
+            <do>${load_modules}</do>
+            <do>cd src; make clean; make TARGET=RELEASE PARTYPE=PAR OPENMP=1 CFG=icc-impi
+                VECTORIZE_CODE=${vectorize_code} -j 28
+            </do>
+        </step>
 
-    <fileset name="config">
-      <copy>${jube_benchmark_home}/input</copy>
-    </fileset>
+        <fileset name="config">
+            <copy>${jube_benchmark_home}/input</copy>
+        </fileset>
 
-    <!-- substitute pattern in submit script-->
-    <substituteset name="executesub" init_with="platform.xml">
-      <sub source="#ENV#">
-	source /etc/profile.d/modules.sh
-	${load_modules}
-        $env
-      </sub>
-    </substituteset>
+        <!-- substitute pattern in submit script-->
+        <substituteset name="executesub" init_with="platform.xml">
+            <sub source="#ENV#">
+                source /etc/profile.d/modules.sh
+                ${load_modules}
+                $env
+            </sub>
+        </substituteset>
 
-    <substituteset name="inputsub">
-      <iofile in="./${input_dir}/${input_file}" out="./${input_dir}/${input_file}"/>
-      <sub source="#density#">${density}</sub>
-      <sub source="#cutoff#">${cutoff}</sub>
-      <sub source="#lj-centers#">${ljcenters}</sub>
-    </substituteset>
+        <substituteset name="inputsub">
+            <iofile in="./${input_dir}/${input_file}" out="./${input_dir}/${input_file}"/>
+            <sub source="#density#">${density}</sub>
+            <sub source="#cutoff#">${cutoff}</sub>
+            <sub source="#lj-centers#">${ljcenters}</sub>
+        </substituteset>
 
-    <!-- prepare submit script and submit the job to the batch system-->
-    <step name="exe" depend="compile" suffix="d${density}.c${cutoff}.r${repeat}">
-      <use>config</use>
-      <use>stat_param</use>
-      <use>inputParam</use>
-      <use>inputsub</use>
-      <use>systemParameter</use>
-      <use>executesub</use>
-      <use from="platform.xml">executeset</use>
-      <use from="platform.xml">jobfiles</use>
-      <do done_file="$done_file">python3 ${jube_benchmark_home}/job_combine.py add ${submit_script}</do>
-    </step>
-
-
-    <patternset name="verify_pat">
-      <pattern mode="pattern" name="time">Computation in main loop took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
-      <pattern mode="pattern" name="molsteps">Simulation speed:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}Molecule-updates per second.</pattern>
-      <pattern mode="pattern" name="time_decomp">Decomposition took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
-      <pattern mode="pattern" name="time_com">Communication took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
-      <pattern mode="pattern" name="time_compute">Computation took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
-      <pattern mode="pattern" name="time_io">IO in main loop took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
-
-    </patternset>
+        <!-- prepare submit script and submit the job to the batch system-->
+        <step name="exe" depend="compile" suffix="d${density}.c${cutoff}.r${repeat}">
+            <use>config</use>
+            <use>stat_param</use>
+            <use>inputParam</use>
+            <use>inputsub</use>
+            <use>systemParameter</use>
+            <use>executesub</use>
+            <use from="platform.xml">executeset</use>
+            <use from="platform.xml">jobfiles</use>
+            <do done_file="$done_file">python3 ${jube_benchmark_home}/job_combine.py add ${submit_script}</do>
+        </step>
 
 
-    <analyser name="analyse_time">
-      <analyse step="exe">
-        <file use="verify_pat">${outlogfile}</file>
-      </analyse>
-    </analyser>
+        <patternset name="verify_pat">
+            <pattern mode="pattern" name="time">Computation in main loop
+                took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
+            </pattern>
+            <pattern mode="pattern" name="molsteps">Simulation
+                speed:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}Molecule-updates per second.
+            </pattern>
+            <pattern mode="pattern" name="time_decomp">Decomposition
+                took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
+            </pattern>
+            <pattern mode="pattern" name="time_com">Communication took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
+            </pattern>
+            <pattern mode="pattern" name="time_compute">Computation took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
+            </pattern>
+            <pattern mode="pattern" name="time_io">IO in main loop took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
+            </pattern>
 
-    <result>
-      <use>analyse_time</use>
-      <table name="runtime" style="csv">
-        <!--<column>nodes</column>
-        <column>taskspernode</column>
-	<column>threadspertask</column>-->
-        <column>vectorize_code</column>
-	<column>density</column>
-	<column>cutoff</column>
-	<column>repeat</column>
-        <column>time</column>
-	<column>molsteps</column>
-      </table>
-    </result>
+        </patternset>
 
-  </benchmark>
+
+        <analyser name="analyse_time">
+            <analyse step="exe">
+                <file use="verify_pat">${outlogfile}</file>
+            </analyse>
+        </analyser>
+
+        <result>
+            <use>analyse_time</use>
+            <table name="runtime" style="csv">
+                <!--<column>nodes</column>
+                <column>taskspernode</column>
+            <column>threadspertask</column>-->
+                <column>vectorize_code</column>
+                <column>density</column>
+                <column>cutoff</column>
+                <column>repeat</column>
+                <column>time</column>
+                <column>molsteps</column>
+            </table>
+        </result>
+
+    </benchmark>
 </jube>

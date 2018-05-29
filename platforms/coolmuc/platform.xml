@@ -38,28 +38,28 @@
 
     <substituteset name="executesub">
         <!-- Default jobscript substitution -->
-        <iofile in="${submit_script}.in" out="$submit_script" />
-        <sub source="#ENV#" dest="$env" />
-        <sub source="#NOTIFY_EMAIL#" dest="$mail" />
-        <sub source="#NOTIFICATION_TYPE#" dest="$notification" />
-        <sub source="#BENCHNAME#" dest="${jube_benchmark_name}" />
-        <sub source="#NODES#" dest="$nodes" />
-        <sub source="#TASKS#" dest="$tasks" />
-        <sub source="#NCPUS#" dest="$taskspernode" />
-        <sub source="#NTHREADS#" dest="$threadspertask" />
-        <sub source="#TIME_LIMIT#" dest="$timelimit" />
-        <sub source="#PREPROCESS#" dest="$preprocess" />
-        <sub source="#POSTPROCESS#" dest="$postprocess" />
-        <sub source="#QUEUE#" dest="$queue" />
-        <sub source="#EXPORT#" dest="$export" />
-        <sub source="#STARTER#" dest="$starter" />
-        <sub source="#ARGS_STARTER#" dest="$args_starter" />
-        <sub source="#MEASUREMENT#" dest="$measurement" />
-        <sub source="#STDOUTLOGFILE#" dest="$outlogfile" />
-        <sub source="#STDERRLOGFILE#" dest="$errlogfile" />
-        <sub source="#EXECUTABLE#" dest="$executable" />
-        <sub source="#ARGS_EXECUTABLE#" dest="$args_exec" />
-        <sub source="#FLAG#" dest="touch $done_file" />
+        <iofile in="${submit_script}.in" out="$submit_script"/>
+        <sub source="#ENV#" dest="$env"/>
+        <sub source="#NOTIFY_EMAIL#" dest="$mail"/>
+        <sub source="#NOTIFICATION_TYPE#" dest="$notification"/>
+        <sub source="#BENCHNAME#" dest="${jube_benchmark_name}"/>
+        <sub source="#NODES#" dest="$nodes"/>
+        <sub source="#TASKS#" dest="$tasks"/>
+        <sub source="#NCPUS#" dest="$taskspernode"/>
+        <sub source="#NTHREADS#" dest="$threadspertask"/>
+        <sub source="#TIME_LIMIT#" dest="$timelimit"/>
+        <sub source="#PREPROCESS#" dest="$preprocess"/>
+        <sub source="#POSTPROCESS#" dest="$postprocess"/>
+        <sub source="#QUEUE#" dest="$queue"/>
+        <sub source="#EXPORT#" dest="$export"/>
+        <sub source="#STARTER#" dest="$starter"/>
+        <sub source="#ARGS_STARTER#" dest="$args_starter"/>
+        <sub source="#MEASUREMENT#" dest="$measurement"/>
+        <sub source="#STDOUTLOGFILE#" dest="$outlogfile"/>
+        <sub source="#STDERRLOGFILE#" dest="$errlogfile"/>
+        <sub source="#EXECUTABLE#" dest="$executable"/>
+        <sub source="#ARGS_EXECUTABLE#" dest="$args_exec"/>
+        <sub source="#FLAG#" dest="touch $done_file"/>
     </substituteset>
 
     <fileset name="jobfiles">

@@ -27,11 +27,11 @@
         $JUBE_INCLUDE_PATH/platform.xml -->
         <parameterset name="systemParameter" init_with="platform.xml">
             <parameter name="nodes" type="int">1</parameter>
-            <parameter name="taskspernode" type="int">2</parameter>
-            <parameter name="threadspertask" type="int">32</parameter>
+            <parameter name="taskspernode" type="int">1</parameter>
+            <parameter name="threadspertask" type="int">256</parameter>
             <parameter name="queue">mpp3</parameter>
-            <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file} -n 2000</parameter>
-            <parameter name="timelimit">00:15:00</parameter>
+            <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file}</parameter>
+            <parameter name="timelimit">00:05:00</parameter>
         </parameterset>
 
         <parameterset name="inputParam">
@@ -113,14 +113,19 @@
         <result>
             <use>analyse_time</use>
             <table name="runtime" style="csv">
-                <!--<column>nodes</column>
+                <column>nodes</column>
                 <column>taskspernode</column>
-            <column>threadspertask</column>-->
+                <column>threadspertask</column>
                 <column>vectorize_code</column>
                 <column>density</column>
                 <column>cutoff</column>
+                <column>ljcenters</column>
                 <column>repeat</column>
                 <column>time</column>
+                <column>time_decomp</column>
+                <column>time_com</column>
+                <column>time_compute</column>
+                <column>time_io</column>
                 <column>molsteps</column>
             </table>
         </result>

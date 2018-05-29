@@ -13,7 +13,7 @@
     </parameterset>
 
     <!-- initial parameterset with corresponding set in $JUBE_INCLUDE_PATH/platform.xml -->
-    <parameterset name="system_param" init_with="platform.xml">
+    <parameterset name="systemParameter" init_with="platform.xml">
         <parameter name="nodes" type="int">1</parameter>
         <parameter name="taskspernode" type="int">1</parameter>
         <parameter name="threadspertask" type="int">256</parameter>

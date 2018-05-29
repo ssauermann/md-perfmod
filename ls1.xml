@@ -13,9 +13,7 @@
             <use from="params.xml">compile_param</use>
             <use>source_code</use>
             <do>${load_modules}</do>
-            <do>cd src; make clean; make TARGET=RELEASE PARTYPE=PAR OPENMP=1 CFG=icc-impi
-                VECTORIZE_CODE=${vectorize_code} -j 28
-            </do>
+            <do>cd src; make clean; make TARGET=RELEASE PARTYPE=PAR OPENMP=1 CFG=icc-impi VECTORIZE_CODE=${vectorize_code} -j 28</do>
         </step>
 
         <fileset name="config">
@@ -46,7 +44,7 @@
             <use from="params.xml">stat_param</use>
             <use from="params.xml">input_param</use>
             <use>inputsub</use>
-            <use from="params.xml">system_param</use>
+            <use from="params.xml">systemParameter</use>
             <use>executesub</use>
             <use from="platform.xml">executeset</use>
             <use from="platform.xml">jobfiles</use>
@@ -55,21 +53,12 @@
 
 
         <patternset name="verify_pat">
-            <pattern mode="pattern" name="time">Computation in main loop
-                took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
-            </pattern>
-            <pattern mode="pattern" name="molsteps">Simulation
-                speed:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}Molecule-updates per second.
-            </pattern>
-            <pattern mode="pattern" name="time_decomp">Decomposition
-                took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
-            </pattern>
-            <pattern mode="pattern" name="time_com">Communication took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
-            </pattern>
-            <pattern mode="pattern" name="time_compute">Computation took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
-            </pattern>
-            <pattern mode="pattern" name="time_io">IO in main loop took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec
-            </pattern>
+            <pattern mode="pattern" name="time">Computation in main loop took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
+            <pattern mode="pattern" name="molsteps">Simulation speed:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}Molecule-updates per second.</pattern>
+            <pattern mode="pattern" name="time_decomp">Decomposition took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
+            <pattern mode="pattern" name="time_com">Communication took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
+            <pattern mode="pattern" name="time_compute">Computation took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
+            <pattern mode="pattern" name="time_io">IO in main loop took:${jube_pat_bl}${jube_pat_fp}${jube_pat_bl}sec</pattern>
 
         </patternset>
 

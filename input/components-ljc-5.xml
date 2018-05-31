@@ -5,56 +5,56 @@
         <site type="LJ126" id="1">
             <coords>
                 <x>0.0</x>
-                <y>1.5</y>
+                <y>0.9</y>
                 <z>0.0</z>
             </coords>
-            <mass>1.0</mass>
-            <sigma>1.0</sigma>
-            <epsilon>1.0</epsilon>
+            <mass>1.0e-2</mass>
+            <sigma>1.0e-3</sigma>
+            <epsilon>1.0e-5</epsilon>
             <shifted>0</shifted>
         </site>
         <site type="LJ126" id="2">
             <coords>
-                <x>1.0</x>
+                <x>0.7</x>
                 <y>0.0</y>
-                <z>1.0</z>
+                <z>0.7</z>
             </coords>
-            <mass>1.0</mass>
-            <sigma>1.0</sigma>
-            <epsilon>1.0</epsilon>
+            <mass>1.0e-2</mass>
+            <sigma>1.0e-3</sigma>
+            <epsilon>1.0e-5</epsilon>
             <shifted>0</shifted>
         </site>
         <site type="LJ126" id="3">
             <coords>
-                <x>1.0</x>
+                <x>0.7</x>
                 <y>0.0</y>
-                <z>-1.0</z>
+                <z>-0.7</z>
             </coords>
-            <mass>1.0</mass>
-            <sigma>1.0</sigma>
-            <epsilon>1.0</epsilon>
+            <mass>1.0e-2</mass>
+            <sigma>1.0e-3</sigma>
+            <epsilon>1.0e-5</epsilon>
             <shifted>0</shifted>
         </site>
         <site type="LJ126" id="4">
             <coords>
-                <x>-1.0</x>
+                <x>-0.7</x>
                 <y>0.0</y>
-                <z>-1.0</z>
+                <z>-0.7</z>
             </coords>
-            <mass>1.0</mass>
-            <sigma>1.0</sigma>
-            <epsilon>1.0</epsilon>
+            <mass>1.0e-2</mass>
+            <sigma>1.0e-3</sigma>
+            <epsilon>1.0e-5</epsilon>
             <shifted>0</shifted>
         </site>
         <site type="LJ126" id="5">
             <coords>
-                <x>-1.0</x>
+                <x>-0.7</x>
                 <y>0.0</y>
-                <z>1.0</z>
+                <z>0.7</z>
             </coords>
-            <mass>1.0</mass>
-            <sigma>1.0</sigma>
-            <epsilon>1.0</epsilon>
+            <mass>1.0e-2</mass>
+            <sigma>1.0e-3</sigma>
+            <epsilon>1.0e-5</epsilon>
             <shifted>0</shifted>
         </site>
         <momentsofinertia rotaxes="xyz">

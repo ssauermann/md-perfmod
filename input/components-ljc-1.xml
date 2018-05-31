@@ -8,9 +8,9 @@
                 <y>0.0</y>
                 <z>0.0</z>
             </coords>
-            <mass>1.0</mass>
-            <sigma>1.0</sigma>
-            <epsilon>1.0</epsilon>
+            <mass>1.0e-2</mass>
+            <sigma>1.0e-3</sigma>
+            <epsilon>1.0e-5</epsilon>
             <shifted>0</shifted>
         </site>
         <momentsofinertia rotaxes="xyz">

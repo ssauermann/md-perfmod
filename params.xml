@@ -18,7 +18,7 @@
         <parameter name="taskspernode" type="int">1</parameter>
         <parameter name="threadspertask" type="int">256</parameter>
         <parameter name="queue">mpp3</parameter>
-        <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file}</parameter>
+        <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file} --final-checkpoint=0</parameter>
         <parameter name="timelimit">00:05:00</parameter>
     </parameterset>
 
@@ -27,13 +27,13 @@
         <parameter name="cutoff" type="float">2.0, 3.0, 4.0, 5.0, 6.0</parameter>
         <parameter name="ljcenters" type="int">1, 2, 3, 4, 5</parameter>
         <!-- ori, hs, mp have no openmp implementation, nt is not fully implemented, qui requires different compilation -->
-        <parameter name="traversal" type="string">c08,c04,hs<!--,slice,ori,mp--><!--,nt,qui--></parameter>
+        <parameter name="traversal" type="string">c08,c04<!--,hs,slice,ori,mp--><!--,nt,qui--></parameter>
         <parameter name="cellsincutoff" type="int" mode="python">
             { "mp" : "1, 2" }.get("${traversal}", "1")
         </parameter>
     </parameterset>
 
     <parameterset name="stat_param">
-        <parameter name="repeat" type="int">1<!--, 2, 3, 4, 5--></parameter>
+        <parameter name="repeat" type="int">1, 2, 3, 4, 5</parameter>
     </parameterset>
 </jube>

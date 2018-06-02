@@ -77,7 +77,7 @@
                 <column>threadspertask</column>
                 <column>vectorize_code</column>
                 <column>traversal</column>
-                <column>cellspercutoff</column>
+                <column>cellsincutoff</column>
                 <column>density</column>
                 <column>cutoff</column>
                 <column>ljcenters</column>

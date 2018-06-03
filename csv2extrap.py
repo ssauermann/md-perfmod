@@ -61,7 +61,7 @@ def read_params():
     if args.fixed:
         for entry in args.fixed:
             key, val = entry.split("=", 1)
-            fixed[key] = float(val)
+            fixed[key] = val
 
     params = Parameters(variables, fixed, metric, repeat, file_in, file_out, exp_name)
 
@@ -139,7 +139,10 @@ def conversion(data, var, fixed, metric, repeat):
     for param, val in fixed.items():
         if param in var:
             raise ValueError("Parameter `%s` can not be fixed, because it is used as a variable." % param)
-        selected_data = data[np.isclose(data[param], val)]
+        try:
+            selected_data = data[np.isclose(data[param], float(val))]
+        except ValueError:
+            selected_data = data[data[param] == val]
         if len(selected_data) == 0:
             raise ValueError("Parameter `%s` can not be fixed to `%s`." % (param, val))
 

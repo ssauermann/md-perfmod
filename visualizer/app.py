@@ -15,6 +15,7 @@ import tempfile
 from dash.dependencies import Input, Output
 from flask_caching import Cache
 from functools import partial
+from pathos.multiprocessing import ProcessingPool as Pool
 from py_expression_eval import Parser
 
 csv_file_path = os.path.relpath('../ls1-bench1.csv')
@@ -225,6 +226,25 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
     if sel_metric is None:
         sel_metric = metric_columns[0]
 
+    models = []
+    if sel_compare is None:
+        model = create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args)()
+        if model is not None:
+            # TODO Edit parsing library instead of replacing here
+            model = model.replace('log2^1', 'log2')
+            models.append(model)
+    else:
+        filters = list(map(lambda x: ['%s=%s' % (sel_compare, x)], df[sel_compare].unique()))
+
+        with Pool(len(filters)) as p:
+            models = p.map(create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args), filters)
+
+        models = list(map(lambda x: x.replace('log2^1', 'log2') if x is not None else None, models))
+
+    return json.dumps(models)
+
+
+def create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args):
     def create_model(additional_filters=list()):
         try:
             _, tmp_file_in = tempfile.mkstemp()
@@ -238,8 +258,6 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
 
             call_params += ['-f'] + filters + additional_filters
 
-            print(call_params)
-
             # handle repeat column
             if sel_repeat is None:
                 call_params.append('--single-measurement')
@@ -252,28 +270,11 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
             subprocess.check_call(['/opt/extrap/bin/extrap-modeler', 'input', tmp_file_in, '-o', tmp_file_out])
             model_summary = subprocess.check_output(['/opt/extrap/bin/extrap-print', tmp_file_out]).decode("utf-8")
 
-            print(model_summary)
-
             return re.search(r'model: (.+)\n', model_summary).group(1)
         except subprocess.CalledProcessError:
             return None
 
-    models = []
-    if sel_compare is None:
-        model = create_model()
-        if model is not None:
-            # TODO Edit parsing library instead of replacing here
-            model = model.replace('log2^1', 'log2')
-            models.append(model)
-    else:
-        for cmp_val in df[sel_compare].unique():
-            model = create_model(['%s=%s' % (sel_compare, cmp_val)])
-            if model is not None:
-                # TODO Edit parsing library instead of replacing here
-                model = model.replace('log2^1', 'log2')
-                models.append(model)
-
-    return json.dumps(models)
+    return create_model
 
 
 @app.callback(Output('1d-graph', 'figure'),

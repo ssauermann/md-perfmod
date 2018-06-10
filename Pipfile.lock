@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "fb379c8591debdc443bc462bae97eb30e375976067439ed0bd3b6382501e9a63"
+            "sha256": "70c2ccbcbbdc5c8ddf1619e3e66f20df80dc46b2342a04f016e821596ebea2b1"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -79,6 +79,12 @@
             ],
             "version": "==4.3.0"
         },
+        "dill": {
+            "hashes": [
+                "sha256:97fd758f5fe742d42b11ec8318ecfcff8776bccacbfcec05dfd6276f5d450f73"
+            ],
+            "version": "==0.2.7.1"
+        },
         "flask": {
             "hashes": [
                 "sha256:2271c0070dbcb5275fad4a82e29f23ab92682dc45f9dfbc22c02ba9b9322ce48",
@@ -147,6 +153,12 @@
             ],
             "version": "==1.0"
         },
+        "multiprocess": {
+            "hashes": [
+                "sha256:c4c196f3c4561dc1d78139c3e73709906a222d2fc166ef3eef895d8623df7267"
+            ],
+            "version": "==0.70.5"
+        },
         "nbformat": {
             "hashes": [
                 "sha256:b9a0dbdbd45bb034f4f8893cafd6f652ea08c8c1674ba83f2dc55d3955743b0b",
@@ -203,12 +215,31 @@
             "index": "pypi",
             "version": "==0.23.0"
         },
+        "pathos": {
+            "hashes": [
+                "sha256:a153a0a9d093220688ba7972e4a9a95996a6a5caece2feb3576b22e6d474c6a0"
+            ],
+            "index": "pypi",
+            "version": "==0.2.1"
+        },
         "plotly": {
             "hashes": [
                 "sha256:f7305816a423fd899da20919282445703118aeece19a54fb97be4cbf302341f8"
             ],
             "index": "pypi",
             "version": "==2.7.0"
+        },
+        "pox": {
+            "hashes": [
+                "sha256:d3e8167a1ebe08ae56262a0b9359118d90bc4648cd284b5d10ae240343100a75"
+            ],
+            "version": "==0.2.3"
+        },
+        "ppft": {
+            "hashes": [
+                "sha256:f94b26491b4a36adc975fc51dba7568089a24756007a3a4ef3414a98d7337651"
+            ],
+            "version": "==1.6.4.7.1"
         },
         "python-dateutil": {
             "hashes": [

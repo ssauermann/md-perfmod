@@ -15,5 +15,6 @@ dash-core-components = "*"
 plotly = "*"
 flask-caching = "*"
 colorlover = "*"
+pathos = "*"
 
 [dev-packages]

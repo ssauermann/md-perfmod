@@ -2,6 +2,7 @@
 import json
 import subprocess
 
+import colorlover as cl
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -15,7 +16,6 @@ from dash.dependencies import Input, Output
 from flask_caching import Cache
 from functools import partial
 from py_expression_eval import Parser
-import colorlover as cl
 
 csv_file_path = os.path.relpath('../ls1-bench1.csv')
 df = pd.read_csv(csv_file_path)
@@ -154,20 +154,35 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
 
         split_dfs = [frame for frame in filtered_df.groupby(sel_compare)]
 
-        for (region, frame), model in zip(split_dfs, models):
-            m = go.Scatter(
+        num_colors = len(models) + len(split_dfs)
+
+        for i, ((region, frame), model) in enumerate(zip(split_dfs, models)):
+            options_m = dict(
                 x=x_vals,
                 y=sample_points(model),
                 name='%s: %s (model)' % (sel_compare, str(region)),
                 legendgroup=region,
             )
-            d = go.Scatter(
+
+            options_d = dict(
                 x=frame[sel_var1],
                 y=frame[sel_metric],
                 mode='markers',
                 name='%s: %s (data)' % (sel_compare, str(region)),
                 legendgroup=region,
             )
+
+            if 3 < num_colors < 13:
+                colors = cl.scales[str(num_colors)]['qual']['Paired']
+                options_m['line'] = dict(color=colors[2 * i])
+                options_d['marker'] = dict(color=colors[2 * i + 1])
+            elif num_colors < 25:
+                colors = cl.scales[str(num_colors)]['qual']['Set1']
+                options_m['line'] = dict(color=colors[i])
+                options_d['marker'] = dict(color=colors[i])
+
+            m = go.Scatter(options_m)
+            d = go.Scatter(options_d)
             data_list += [m, d]
     else:
         data_list += [go.Scatter(

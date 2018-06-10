@@ -18,7 +18,7 @@ from functools import partial
 from pathos.multiprocessing import ProcessingPool as Pool
 from py_expression_eval import Parser
 
-csv_file_path = os.path.relpath('../ls1-bench1.csv')
+csv_file_path = os.path.relpath('../ls1-bench4.csv')
 df = pd.read_csv(csv_file_path)
 
 app = dash.Dash()
@@ -28,16 +28,31 @@ sliders = []
 slider_names = []
 
 
+def create_marks(l):
+    result = dict()
+    for i, e in enumerate(l):
+        if isinstance(e, str):
+            result[-len(l) + i] = e
+        elif e % 1 == 0:
+            result[int(e)] = str(e)
+        else:
+            result[e] = str(e)
+    return result
+
+
 def add_slider(column):
     sid = 'slider%i' % len(sliders)
+    col = df[column].unique()
+    minv = -len(col) if isinstance(col[0], str) else col.min()
+    maxv = -1 if isinstance(col[0], str) else col.max()
     sliders.append(dcc.Slider(
         id=sid,
-        min=df[column].min(),
-        max=df[column].max(),
-        value=df[column].min(),
+        min=minv,
+        max=maxv,
+        value=minv,
         step=None,
         updatemode='drag',
-        marks={int(i) if i % 1 == 0 else i: '{}'.format(i) for i in df[column].unique()},
+        marks=create_marks(col),
     ))
     slider_names.append(sid)
 
@@ -77,7 +92,6 @@ app.layout = html.Div(children=[
             dcc.Dropdown(
                 id='sel_repeat',
                 options=list(map(lambda c: {'label': c, 'value': c}, selectable_columns)),
-                value=selectable_columns[len(selectable_columns) - 1]
             )
         ], style={'width': '25%', 'float': 'left', 'display': 'inline-block'}),
         html.Div([
@@ -144,6 +158,8 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
     for col, val in zip(selectable_columns, args):
         if col in [sel_var1, sel_metric, sel_compare, sel_repeat]:
             continue
+        if val < 0:
+            val = df[col].unique()[val + len(df[col].unique())]
         filtered_df = filtered_df[df[col] == val]
 
     if sel_var1 is None:
@@ -238,6 +254,7 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
 
         with Pool(len(filters)) as p:
             models = p.map(create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args), filters)
+            print("Foo")
 
         models = list(map(lambda x: x.replace('log2^1', 'log2') if x is not None else None, models))
 
@@ -253,6 +270,8 @@ def create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args)
             # handle fixed columns
             filters = []
             for col, val in zip(selectable_columns, args):
+                if val < 0:
+                    val = df[col].unique()[val + len(df[col].unique())]
                 if col not in [sel_var1, sel_repeat, sel_compare]:
                     filters.append("%s=%s" % (col, val))
 
@@ -267,7 +286,8 @@ def create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args)
             subprocess.check_call(call_params)
 
             _, tmp_file_out = tempfile.mkstemp()
-            subprocess.check_call(['/opt/extrap/bin/extrap-modeler', 'input', tmp_file_in, '-o', tmp_file_out])
+            subprocess.check_call(['/opt/extrap/bin/extrap-modeler', 'input', tmp_file_in, '-o', tmp_file_out],
+                                  timeout=8)
             model_summary = subprocess.check_output(['/opt/extrap/bin/extrap-print', tmp_file_out]).decode("utf-8")
 
             return re.search(r'model: (.+)\n', model_summary).group(1)
@@ -287,6 +307,8 @@ def update_figure(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
     for col, val in zip(selectable_columns, args):
         if col in [sel_var1, sel_metric, sel_compare, sel_repeat]:
             continue
+        if val < 0:
+            val = df[col].unique()[val + len(df[col].unique())]
         filtered_df = filtered_df[df[col] == val]
 
     if sel_var1 is None:

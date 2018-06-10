@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
+import json
 import subprocess
 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import numpy as np
 import os
 import pandas as pd
 import plotly.graph_objs as go
+import re
 import tempfile
 from dash.dependencies import Input, Output
-from functools import partial
-import re
 from flask_caching import Cache
+from functools import partial
+from py_expression_eval import Parser
+import colorlover as cl
 
 csv_file_path = os.path.relpath('../ls1-bench1.csv')
 df = pd.read_csv(csv_file_path)
@@ -97,7 +101,8 @@ app.layout = html.Div(children=[
         html.P(id='model'),
     ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
 
-    html.Div([], style={'margin-top': '4em'})
+    html.Div([], style={'margin-top': '4em'}),
+    html.Div(id='models', style={'display': 'none'}),
 ])
 
 
@@ -115,14 +120,83 @@ def generate_slider_updates():
 generate_slider_updates()
 
 
-#@app.callback(Output('model-graph', 'figure'),
-#              [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
-#               Input('sel_compare', 'value'), Input('sel_repeat', 'value'), Input('model', 'children')]
-#              + [Input(sid, 'value') for sid in slider_names])
-#def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model, *args):
-    #pass
+@app.callback(Output('model-graph', 'figure'),
+              [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
+               Input('sel_compare', 'value'), Input('sel_repeat', 'value'), Input('models', 'children')]
+              + [Input(sid, 'value') for sid in slider_names])
+def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json, *args):
+    parser = Parser()
+    models = json.loads(model_json)
 
-@app.callback(Output('model', 'children'),
+    data_list = []
+    x_vals = np.linspace(df[sel_var1].min(), df[sel_var1].max(), 50)
+
+    def sample_points(model_):
+        m = parser.parse(model_)
+        points = []
+        for x in x_vals:
+            points.append(m.evaluate({sel_var1: x}))
+        return points
+
+    # filtering
+    filtered_df = df
+    for col, val in zip(selectable_columns, args):
+        if col in [sel_var1, sel_metric, sel_compare, sel_repeat]:
+            continue
+        filtered_df = filtered_df[df[col] == val]
+
+    if sel_var1 is None:
+        sel_var1 = selectable_columns[0]
+    if sel_metric is None:
+        sel_metric = metric_columns[1]
+
+    if sel_compare is not None:
+
+        split_dfs = [frame for frame in filtered_df.groupby(sel_compare)]
+
+        for (region, frame), model in zip(split_dfs, models):
+            m = go.Scatter(
+                x=x_vals,
+                y=sample_points(model),
+                name='%s: %s (model)' % (sel_compare, str(region)),
+                legendgroup=region,
+            )
+            d = go.Scatter(
+                x=frame[sel_var1],
+                y=frame[sel_metric],
+                mode='markers',
+                name='%s: %s (data)' % (sel_compare, str(region)),
+                legendgroup=region,
+            )
+            data_list += [m, d]
+    else:
+        data_list += [go.Scatter(
+            x=x_vals,
+            y=sample_points(models[0]),
+            name='model',
+            legendgroup='1',
+        )]
+        data_list += [
+            go.Scatter(
+                x=filtered_df[sel_var1],
+                y=filtered_df[sel_metric],
+                mode='markers',
+                name='data',
+                legendgroup='1',
+            )]
+
+    return {
+        'data': data_list,
+        'layout': go.Layout(
+            xaxis={'title': sel_var1},
+            yaxis={'title': sel_metric},
+            margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
+            hovermode='closest'
+        )
+    }
+
+
+@app.callback(Output('models', 'children'),
               [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
                Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
               + [Input(sid, 'value') for sid in slider_names])
@@ -147,7 +221,9 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
                 if col not in [sel_var1, sel_repeat, sel_compare]:
                     filters.append("%s=%s" % (col, val))
 
-            call_params += ['-f', " ".join(filters + additional_filters)]
+            call_params += ['-f'] + filters + additional_filters
+
+            print(call_params)
 
             # handle repeat column
             if sel_repeat is None:
@@ -169,12 +245,20 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
 
     models = []
     if sel_compare is None:
-        models.append(create_model())
+        model = create_model()
+        if model is not None:
+            # TODO Edit parsing library instead of replacing here
+            model = model.replace('log2^1', 'log2')
+            models.append(model)
     else:
         for cmp_val in df[sel_compare].unique():
-            models.append(create_model(['%s=%s' % (sel_compare, cmp_val)]))
+            model = create_model(['%s=%s' % (sel_compare, cmp_val)])
+            if model is not None:
+                # TODO Edit parsing library instead of replacing here
+                model = model.replace('log2^1', 'log2')
+                models.append(model)
 
-    return '; '.join(models)
+    return json.dumps(models)
 
 
 @app.callback(Output('1d-graph', 'figure'),

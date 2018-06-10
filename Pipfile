@@ -13,5 +13,6 @@ dash-renderer = "*"
 dash-html-components = "*"
 dash-core-components = "*"
 plotly = "*"
+flask-caching = "*"
 
 [dev-packages]

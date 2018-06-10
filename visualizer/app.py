@@ -5,6 +5,7 @@ import dash_html_components as html
 import pandas as pd
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
+from functools import partial
 
 df = pd.read_csv('../ls1-bench1.csv')
 
@@ -91,29 +92,70 @@ app.layout = html.Div(children=[
 ])
 
 
-# def update_slider(Output(''))
+def generate_slider_updates():
+    def update_slider(slider_column, *args):
+        return any(map(lambda x: x == slider_column, args))
+
+    for slider_id, slider_col in zip(slider_names, selectable_columns):
+        app.callback(
+            Output(slider_id, 'disabled'),
+            [Input('sel_var1', 'value'), Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
+        )(partial(update_slider, slider_col))
+
+generate_slider_updates()
+
 
 @app.callback(Output('1d-graph', 'figure'),
-              [Input('sel_var1', 'value'), Input('sel_metric', 'value'), Input('sel_compare', 'value')]
+              [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
+               Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
               + [Input(sid, 'value') for sid in slider_names])
-def update_figure(sel_var1, sel_metric, sel_compare, *args):
+def update_figure(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
     # sliders[selectable_columns.index(sel_var1)].disabled = True
 
     # filtering
-    selected = [c for c in selectable_columns if c != 2]
-    selected_cutoff = args[1]
-    filtered_df = df[df.cutoff == selected_cutoff]
+    filtered_df = df
+    for col, val in zip(selectable_columns, args):
+        if col in [sel_var1, sel_metric, sel_compare, sel_repeat]:
+            continue
+
+        print(col, val)
+        filtered_df = filtered_df[df[col] == val]
 
     print(filtered_df)
+
+    if sel_var1 is None:
+        sel_var1=selectable_columns[0]
+    if sel_metric is None:
+        sel_metric=metric_columns[1]
+
+    data_list = []
+    mode = 'lines+markers' if sel_repeat is None else 'markers'
+
+    if sel_compare is not None:
+        split_dfs = [frame for frame in filtered_df.groupby(sel_compare)]
+
+
+        for region, frame in split_dfs:
+            d = go.Scatter(
+                x=frame[sel_var1],
+                y=frame[sel_metric],
+                mode=mode,
+                name=region,
+            )
+            data_list.append(d)
+    else:
+        data_list = [
+            go.Scatter(
+                x=filtered_df[sel_var1],
+                y=filtered_df[sel_metric],
+                mode=mode,
+            )]
+
     return {
-        'data': [go.Scatter(
-            x=filtered_df['density'],
-            y=filtered_df['time'],
-            mode='markers',
-        )],
+        'data': data_list,
         'layout': go.Layout(
-            xaxis={'title': 'Density'},
-            yaxis={'title': 'Time'},
+            xaxis={'title': sel_var1},
+            yaxis={'title': sel_metric},
             margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
             hovermode='closest'
         )

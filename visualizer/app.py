@@ -113,12 +113,38 @@ app.layout = html.Div(children=[
     html.Div([
         html.H3('Model'),
         dcc.Graph(id='model-graph'),
-        html.P(id='model'),
+        html.Table(id='model-table'),
     ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
 
     html.Div([], style={'margin-top': '4em'}),
     html.Div(id='models', style={'display': 'none'}),
 ])
+
+
+def generate_table(dataframe, max_rows=None):
+    if max_rows is None:
+        max_rows = len(dataframe)
+    return html.Table(
+        # Header
+        [html.Tr([html.Th(col) for col in dataframe.columns])] +
+
+        # Body
+        [html.Tr([
+            html.Td(dataframe.iloc[i][col]) for col in dataframe.columns
+        ]) for i in range(min(len(dataframe), max_rows))]
+    )
+
+
+@app.callback(Output('model-table', 'children'), [Input('sel_compare', 'value'), Input('models', 'children')])
+def update_model_table(compare, models_json):
+    models = json.loads(models_json)
+
+    if compare is not None:
+        data = list(zip(df[compare].unique(), models))
+    else:
+        data = [('model', models[0])]
+    table = pd.DataFrame(data, columns=['Label', 'Model'])
+    return generate_table(table)
 
 
 def generate_slider_updates():

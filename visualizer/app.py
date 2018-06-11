@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
 import json
+import multiprocessing
+import os
+import re
 import subprocess
+import tempfile
+from functools import partial
 
 import colorlover as cl
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
-import os
 import pandas as pd
 import plotly.graph_objs as go
-import re
-import tempfile
 from dash.dependencies import Input, Output
 from flask_caching import Cache
-from functools import partial
 from pathos.multiprocessing import ProcessingPool as Pool
 from py_expression_eval import Parser
 
@@ -278,9 +279,8 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
     else:
         filters = list(map(lambda x: ['%s=%s' % (sel_compare, x)], df[sel_compare].unique()))
 
-        with Pool(len(filters)) as p:
+        with Pool(multiprocessing.cpu_count()) as p:
             models = p.map(create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args), filters)
-            print("Foo")
 
         models = list(map(lambda x: x.replace('log2^1', 'log2') if x is not None else None, models))
 
@@ -313,7 +313,7 @@ def create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args)
 
             _, tmp_file_out = tempfile.mkstemp()
             subprocess.check_call(['/opt/extrap/bin/extrap-modeler', 'input', tmp_file_in, '-o', tmp_file_out],
-                                  timeout=8)
+                                  timeout=30)
             model_summary = subprocess.check_output(['/opt/extrap/bin/extrap-print', tmp_file_out]).decode("utf-8")
 
             return re.search(r'model: (.+)\n', model_summary).group(1)

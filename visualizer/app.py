@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
 import multiprocessing
@@ -16,7 +17,7 @@ import pandas as pd
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 from flask_caching import Cache
-from pathos.multiprocessing import ProcessingPool as Pool
+from pathos.multiprocessing import ProcessPool as Pool
 from py_expression_eval import Parser
 
 csv_file_path = os.path.relpath('../ls1-bench4.csv')

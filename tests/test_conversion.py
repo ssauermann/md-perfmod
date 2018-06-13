@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import csv2extrap as cv
+import md_perfmod.csv2extrap as cv
 
 
 class TestConversion(object):

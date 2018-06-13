@@ -1,8 +1,18 @@
+from inspect import signature
+from itertools import product, starmap
+
 import numpy as np
 import pandas as pd
 import pytest
 
 import md_perfmod.csv2extrap as cv
+
+
+def generate_data(func, n=3):
+    k = len(signature(func).parameters)  # e.g. 2
+    args = [list(range(1, n + 1))] * k  # e.g. [[1,2,3],[1,2,3]]
+    cartesian = product(*args)  # e.g. [(1,1),(1,2),(1,3),(2,1),...,(3,3)]
+    return np.array(list(starmap(func, cartesian)))  # e.g. [fun(1,1), fun(1,2), ... , fun(3,3)]
 
 
 class TestConversion(object):
@@ -32,6 +42,10 @@ class TestConversion(object):
                              [2, 3, 230, 0],
                              [3, 3, 330, 0]])
     df_complex = pd.DataFrame(data_complex, columns=columns_complex)
+
+    columns_large = ['p', 'q', 'r', 's', 'metric_a', 'metric_b']
+    data_large = generate_data(lambda p, q, r, s: [p, q, r, s, p * 10000 + q * 1000 + r * 100 + s * 10, p + q + r + s])
+    df_large = pd.DataFrame(data_large, columns=columns_large)
 
     def test_simple(self):
         df = self.df_simple.copy(deep=True)
@@ -101,3 +115,10 @@ class TestConversion(object):
         assert 10 in result[(1,)] or 11 in result[(1,)]
         assert 20 in result[(2,)] or 21 in result[(2,)]
         assert 30 in result[(3,)] or 31 in result[(3,)]
+
+    def test_fixed_multiple(self):
+        df = self.df_large.copy(deep=True)
+        result = cv.conversion(df, ['p'], {'r': 2, 's': 2}, 'metric_a', None)
+        assert result[(1,)] == [11220]
+        assert result[(2,)] == [21220]
+        assert result[(3,)] == [31220]

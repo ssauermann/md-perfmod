@@ -140,9 +140,9 @@ def conversion(data, var, fixed, metric, repeat):
         if param in var:
             raise ValueError("Parameter `%s` can not be fixed, because it is used as a variable." % param)
         try:
-            selected_data = data[np.isclose(data[param], float(val))]
+            selected_data = selected_data[np.isclose(selected_data[param], float(val))]
         except ValueError:
-            selected_data = data[data[param] == val]
+            selected_data = selected_data[selected_data[param] == val]
         if len(selected_data) == 0:
             raise ValueError("Parameter `%s` can not be fixed to `%s`." % (param, val))
 

@@ -17,5 +17,6 @@ flask-caching = "*"
 colorlover = "*"
 pathos = "*"
 cexprtk = "*"
+scipy = "*"
 
 [dev-packages]

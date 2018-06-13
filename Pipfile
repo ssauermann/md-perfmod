@@ -16,5 +16,6 @@ plotly = "*"
 flask-caching = "*"
 colorlover = "*"
 pathos = "*"
+cexprtk = "*"
 
 [dev-packages]

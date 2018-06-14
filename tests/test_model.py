@@ -37,4 +37,11 @@ def test_integrate():
 def test_integrate2():
     m = model.Model('x*y', ['x', 'y'])
     result = m.integrate((0, 1), (0, 1))
-    assert math.isclose(result, 1/4)
+    assert math.isclose(result, 1 / 4)
+
+
+def test_integrate3():
+    m = model.Model('log2(x)+y^0.5', ['x', 'y'])
+    result = m.integrate((2, 6), (0, 1), n_evaluations=500)
+    analytic = 8 / 3 + (math.log(11664) - 4) / math.log(2)
+    assert math.isclose(result, analytic, rel_tol=1e-5)

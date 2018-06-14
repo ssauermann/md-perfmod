@@ -1,4 +1,6 @@
-"""Class for an extrap performance model"""
+"""Class for evaluating an extrap performance model"""
+
+from itertools import product
 
 import cexprtk
 import numpy as np
@@ -49,29 +51,27 @@ class Model:
         :return:
         """
         if len(values) != len(self.variables):
-            raise ValueError('Must provide a value for each variable')
+            raise ValueError('Must provide a value for each variable %s. Given: %s' % (self.variables, values))
         # assign values to variables; note that the dictionary is ordered
         for k, v in zip(self.variables, values):
             self.symbols.variables[k] = v
         return self.expression()
 
-    def integrate(self, *bounds):
+    def integrate(self, *bounds, n_evaluations=100):
         """
         Integrate the model in the given bounds
+        :param n_evaluations: number of sample points per dimension
         :param bounds: (low, high) tuples defining the integration bounds for each dimension
         :return: Area below the model curve
         """
         dimensions = len(bounds)
-        print(dimensions)
-        x = list(map(lambda bound: np.linspace(bound[0], bound[1], 3), bounds))
-        print("x", x)
-        x_matrix = np.stack(np.meshgrid(*x), -1).reshape(-1, dimensions)
-        print("X", x_matrix)
-        samples = np.vectorize(self.evaluate)(x)
-        print("Samples", samples)
+        x = list(map(lambda bound: np.linspace(bound[0], bound[1], n_evaluations), bounds))
+        cart = product(*x)
+        samples = list(map(lambda c: self.evaluate(*c), cart))
+        samples = np.array(samples).reshape((n_evaluations,) * dimensions)
 
+        result = samples
         for d in range(dimensions):
-            print("Xd", x[d])
-            samples = simps(samples, x[d])
+            result = simps(result, x[d], axis=0)
 
-        return samples
+        return result

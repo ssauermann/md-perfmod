@@ -5,14 +5,14 @@ import numpy as np
 import os
 import pandas as pd
 
+Parameters = namedtuple('Parameters', 'vars fixed metric repeat file_in file_out experiment')
+
 
 def read_params():
     """
     Reads and processes the program arguments and returns them as a named tuple.
     :return: Named parameter tuple
     """
-
-    Parameters = namedtuple('Parameters', 'vars fixed metric repeat file_in file_out experiment')
 
     parser = argparse.ArgumentParser(description='Converts a CSV file containing performance measurements'
                                                  ' to an input file for Extra-P',
@@ -173,15 +173,17 @@ def conversion(data, var, fixed, metric, repeat):
     return mapping
 
 
-def main():
-    params = read_params()
-
+def perform_conversion(params):
     # Read CSV into a data frame
     data = pd.read_csv(params.file_in)
 
     mapping = conversion(data, params.vars, params.fixed, params.metric, params.repeat)
 
     write_extrap(mapping, params)
+
+
+def main():
+    perform_conversion(read_params())
 
     print("Conversion completed!")
 

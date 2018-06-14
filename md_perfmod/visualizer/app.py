@@ -1,26 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
-import multiprocessing
-import os
-import re
-import subprocess
-import tempfile
-from functools import partial
 
 import colorlover as cl
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
+import os
 import pandas as pd
 import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 from flask_caching import Cache
-from pathos.multiprocessing import ProcessPool as Pool
+from functools import partial
 from py_expression_eval import Parser
 
-csv_file_path = os.path.relpath('../ls1-bench4.csv')
+from md_perfmod.visualizer import model_creation
+
+csv_file_path = os.path.relpath('../../ls1-bench4.csv')
 df = pd.read_csv(csv_file_path)
 
 app = dash.Dash()
@@ -261,67 +258,29 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
                Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
               + [Input(sid, 'value') for sid in slider_names])
 @cache.memoize()
-def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
-    path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '../csv2extrap.py')
+def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *slider_vals):
+    # variable and metric must be selected
+    if sel_var1 is None or sel_metric is None:
+        return json.dumps([])
 
-    # prevent variable and metric to be null
-    if sel_var1 is None:
-        sel_var1 = selectable_columns[0]
-    if sel_metric is None:
-        sel_metric = metric_columns[0]
-
-    models = []
     if sel_compare is None:
-        model = create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args)()
-        if model is not None:
-            # TODO Edit parsing library instead of replacing here
-            model = model.replace('log2^1', 'log2')
-            models.append(model)
+        comp_values = None
     else:
-        filters = list(map(lambda x: ['%s=%s' % (sel_compare, x)], df[sel_compare].unique()))
+        comp_values = df[sel_compare].unique()
 
-        with Pool(multiprocessing.cpu_count()) as p:
-            models = p.map(create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args), filters)
+    fixed = dict(
+        filter(lambda s: s[0] not in [sel_var1, sel_metric, sel_compare], zip(selectable_columns, slider_vals)))
 
-        models = list(map(lambda x: x.replace('log2^1', 'log2') if x is not None else None, models))
+    for k, v in fixed.items():
+        if v < 0:
+            col = df[k].unique()
+            fixed[k] = col[v + len(col)]
+
+    models = model_creation.create(csv_file_path, [sel_var1], sel_metric, sel_repeat, sel_compare, comp_values, fixed)
+
+    models = list(map(lambda m: m.model_str, models))  # TODO Serialize complete model
 
     return json.dumps(models)
-
-
-def create_model_wrap(path, sel_var1, sel_metric, sel_repeat, sel_compare, args):
-    def create_model(additional_filters=list()):
-        try:
-            _, tmp_file_in = tempfile.mkstemp()
-            call_params = ['python3', path, csv_file_path, tmp_file_in, '-v', sel_var1, '-m', sel_metric]
-
-            # handle fixed columns
-            filters = []
-            for col, val in zip(selectable_columns, args):
-                if val < 0:
-                    val = df[col].unique()[val + len(df[col].unique())]
-                if col not in [sel_var1, sel_repeat, sel_compare]:
-                    filters.append("%s=%s" % (col, val))
-
-            call_params += ['-f'] + filters + additional_filters
-
-            # handle repeat column
-            if sel_repeat is None:
-                call_params.append('--single-measurement')
-            else:
-                call_params += ['-r', sel_repeat]
-
-            subprocess.check_call(call_params)
-
-            _, tmp_file_out = tempfile.mkstemp()
-            subprocess.check_call(['/opt/extrap/bin/extrap-modeler', 'input', tmp_file_in, '-o', tmp_file_out],
-                                  timeout=30)
-            model_summary = subprocess.check_output(['/opt/extrap/bin/extrap-print', tmp_file_out]).decode("utf-8")
-
-            return re.search(r'model: (.+)\n', model_summary).group(1)
-        except subprocess.CalledProcessError:
-            return None
-
-    return create_model
 
 
 @app.callback(Output('1d-graph', 'figure'),

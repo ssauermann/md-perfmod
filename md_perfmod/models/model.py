@@ -28,12 +28,13 @@ def notation_fix(expression):
 
 
 class Model:
-    def __init__(self, model_str, variables):
+    def __init__(self, model_str, variables, name=None):
         """
         Parses a model expression and prepares it for evaluation
         :param model_str: Expression as string
         :param variables: Variable names that will be replaced with values when evaluating the model
         """
+        self.name = name
         self.model_str = notation_fix(model_str)
         self.variables = variables
         var_dict = dict(map(lambda x: (x, 0), variables))  # dict of variables with default value 0

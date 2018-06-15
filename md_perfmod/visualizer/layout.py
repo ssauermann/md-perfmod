@@ -14,7 +14,7 @@ def combo_box(name, hid, cols, num_boxes):
             options=combo_opts(cols),
         )
     ],
-        style={'width': '%d%%' % (95 / num_boxes), 'float': 'left', 'margin': '0 1em'})
+        style={'width': '%d%%' % (93 / num_boxes), 'float': 'left', 'margin': '0 1em'})
     ]
 
 
@@ -52,7 +52,7 @@ def slider(name, hid, values):
 def layout(num_variables, selectable_columns, selectable_columns_values, metric_columns):
     cmb_boxes = []
     for i in range(1, num_variables + 1):
-        cmb_boxes += combo_box('Variable', 'sel_var%i' % i, selectable_columns, num_variables + 3)
+        cmb_boxes += combo_box('Variable %i' %i, 'sel_var%i' % i, selectable_columns, num_variables + 3)
 
     cmb_boxes += combo_box('Metric', 'sel_metric', metric_columns, num_variables + 3)
     cmb_boxes += combo_box('Compare', 'sel_compare', selectable_columns, num_variables + 3)

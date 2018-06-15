@@ -1,4 +1,5 @@
 """Creating models with extrap"""
+import csv
 import multiprocessing
 import subprocess
 
@@ -18,6 +19,24 @@ def convert(file, variables, metric, repeat, fixed):
     return tmp_file
 
 
+def extrap_one_param(file_in, file_out):
+    subprocess.check_call(['extrap-modeler', 'input', file_in, '-o', file_out], timeout=30)
+    model_summary = subprocess.check_output(['extrap-print', file_out]).decode("utf-8")
+
+    return re.search(r'model: (.+)\n', model_summary).group(1)
+
+
+def extrap_two_param(file_in, file_out):
+    subprocess.check_call(['exp_two_param', file_in, file_out], timeout=30)
+    with open(file_out) as csv_file:
+        reader = csv.reader(csv_file, delimiter=',')
+        model_summary = [row for row in reader][1][2]
+
+    print(model_summary)
+
+    return re.search(r'\+ (.+)', model_summary).group(1)
+
+
 def create(file, variables, metric, repeat, compare, compare_vals, fixed):
     def get_model(cmp_dict=None):
         try:
@@ -27,10 +46,13 @@ def create(file, variables, metric, repeat, compare, compare_vals, fixed):
             tmp_file_in = convert(file, variables, metric, repeat, f)
 
             _, tmp_file_out = tempfile.mkstemp()
-            subprocess.check_call(['extrap-modeler', 'input', tmp_file_in, '-o', tmp_file_out], timeout=30)
-            model_summary = subprocess.check_output(['extrap-print', tmp_file_out]).decode("utf-8")
 
-            return re.search(r'model: (.+)\n', model_summary).group(1)
+            if len(variables) == 1:
+                return extrap_one_param(tmp_file_in, tmp_file_out)
+            elif len(variables) == 2:
+                return extrap_two_param(tmp_file_in, tmp_file_out)
+            else:
+                raise ValueError("Parameters with more than 2 parameters are currently not supported")
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return None
 
@@ -50,5 +72,5 @@ def create(file, variables, metric, repeat, compare, compare_vals, fixed):
             return Model(model_str, variables, name=compare_val)
 
         with Pool(multiprocessing.cpu_count()) as p:
-            models = p.map(get_model_comp, compare_vals)  # TODO compare_vals = df[sel_compare].unique()
+            models = p.map(get_model_comp, compare_vals)
             return list(filter(lambda x: x is not None, models))

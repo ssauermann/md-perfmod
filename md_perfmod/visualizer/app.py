@@ -6,7 +6,6 @@ import base64
 import colorlover as cl
 import dash
 import dash_html_components as html
-import numpy as np
 import os
 import pandas as pd
 import plotly.graph_objs as go
@@ -37,7 +36,7 @@ for c in df.columns:
 
 slider_names = [('slider%i' % i) for i in range(len(selectable_columns))]
 
-app.layout = layout(1, selectable_columns, selectable_columns_values, metric_columns)
+app.layout = layout(2, selectable_columns, selectable_columns_values, metric_columns)
 
 
 def generate_table(dataframe, max_rows=None):
@@ -81,28 +80,25 @@ generate_slider_updates()
 
 
 @app.callback(Output('model-graph', 'figure'),
-              [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
+              [Input('sel_var1', 'value'), Input('sel_var2', 'value'), Input('sel_metric', 'value'),
                Input('sel_compare', 'value'), Input('sel_repeat', 'value'), Input('models', 'children')]
               + [Input(sid, 'value') for sid in slider_names])
-def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json, *args):
+def update_model_graph(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, model_json, *args):
     if sel_var1 is None or sel_metric is None:
         raise ValueError("Nothing selected")
 
     models = decode(model_json)
 
-    data_list = []
-    x_vals = np.linspace(df[sel_var1].min(), df[sel_var1].max(), 50)
+    bounds = [(df[sel_var1].min(), df[sel_var1].max())]
+    if sel_var2 is not None:
+        bounds.append((df[sel_var2].min(), df[sel_var2].max()))
 
-    def sample_points(model_):
-        points = []
-        for x in x_vals:
-            points.append(model_.evaluate(x))
-        return points
+    data_list = []
 
     # filtering
     filtered_df = df
     for col, val in zip(selectable_columns, args):
-        if col in [sel_var1, sel_metric, sel_compare, sel_repeat]:
+        if col in [sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat]:
             continue
         if val < 0:
             val = df[col].unique()[val + len(df[col].unique())]
@@ -112,24 +108,32 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
         split_dfs = [frame for frame in filtered_df.groupby(sel_compare)]
 
         num_colors = len(models) + len(split_dfs)
-
+        # TODO Scatter3d
         for i, (region, frame) in enumerate(split_dfs):
             name = str(region)
             model = next(m for m in models if str(m.name) == name)
+            x, samples = model.sample(*bounds)
             options_m = dict(
-                x=x_vals,
-                y=sample_points(model),
+                x=x[0],
                 name='%s: %s (model)' % (sel_compare, name),
                 legendgroup=region,
             )
 
             options_d = dict(
                 x=frame[sel_var1],
-                y=frame[sel_metric],
                 mode='markers',
                 name='%s: %s (data)' % (sel_compare, name),
                 legendgroup=region,
             )
+
+            if sel_var2 is None:
+                options_m['y'] = samples
+                options_d['y'] = frame[sel_metric]
+            else:
+                options_m['y'] = x[1]
+                options_m['z'] = samples
+                options_d['y'] = frame[sel_var2]
+                options_d['z'] = frame[sel_metric]
 
             if 3 < num_colors < 13:
                 colors = cl.scales[str(num_colors)]['qual']['Paired']
@@ -144,9 +148,10 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
             d = go.Scatter(options_d)
             data_list += [m, d]
     else:
+        x, samples = models[0].sample(*bounds)
         data_list += [go.Scatter(
-            x=x_vals,
-            y=sample_points(models[0]),
+            x=x[0],
+            y=samples,
             name='model',
             legendgroup='1',
         )]
@@ -179,11 +184,11 @@ def decode(json):
 
 
 @app.callback(Output('models', 'children'),
-              [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
+              [Input('sel_var1', 'value'), Input('sel_var2', 'value'), Input('sel_metric', 'value'),
                Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
               + [Input(sid, 'value') for sid in slider_names])
 @cache.memoize()
-def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *slider_vals):
+def update_model(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, *slider_vals):
     # variable and metric must be selected
     if sel_var1 is None or sel_metric is None:
         raise ValueError("Nothing selected")
@@ -194,14 +199,19 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *slider_vals):
         comp_values = df[sel_compare].unique()
 
     fixed = dict(
-        filter(lambda s: s[0] not in [sel_var1, sel_metric, sel_compare], zip(selectable_columns, slider_vals)))
+        filter(lambda s: s[0] not in [sel_var1, sel_var2, sel_metric, sel_compare],
+               zip(selectable_columns, slider_vals)))
 
     for k, v in fixed.items():
         if v < 0:
             col = df[k].unique()
             fixed[k] = col[v + len(col)]
 
-    models = model_creation.create(csv_file_path, [sel_var1], sel_metric, sel_repeat, sel_compare, comp_values, fixed)
+    variables = [sel_var1]
+    if sel_var2 is not None:
+        variables.append(sel_var2)
+
+    models = model_creation.create(csv_file_path, variables, sel_metric, sel_repeat, sel_compare, comp_values, fixed)
 
     return encode(models)
 

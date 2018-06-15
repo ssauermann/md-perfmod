@@ -61,18 +61,26 @@ class Model:
     def integrate(self, *bounds, n_evaluations=100):
         """
         Integrate the model in the given bounds
-        :param n_evaluations: number of sample points per dimension
         :param bounds: (low, high) tuples defining the integration bounds for each dimension
+        :param n_evaluations: number of sample points per dimension
         :return: Area below the model curve
+        """
+        dimensions = len(bounds)
+        x, result = self.sample(bounds, n_evaluations=n_evaluations)
+        for d in range(dimensions):
+            result = simps(result, x[d], axis=0)
+
+        return result
+
+    def sample(self, *bounds, n_evaluations=50):
+        """
+        Generate equally distributed samples of the model on the given domain
+        :param bounds: (low, high) tuples defining the bounds for each dimension
+        :param n_evaluations: number of sample points per dimension
+        :return: List of x values in each dimension, d dimensional array with the samples
         """
         dimensions = len(bounds)
         x = list(map(lambda bound: np.linspace(bound[0], bound[1], n_evaluations), bounds))
         cart = product(*x)
         samples = list(map(lambda c: self.evaluate(*c), cart))
-        samples = np.array(samples).reshape((n_evaluations,) * dimensions)
-
-        result = samples
-        for d in range(dimensions):
-            result = simps(result, x[d], axis=0)
-
-        return result
+        return x, np.array(samples).reshape((n_evaluations,) * dimensions)

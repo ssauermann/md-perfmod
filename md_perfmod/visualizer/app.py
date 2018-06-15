@@ -60,8 +60,8 @@ def update_model_table(models_json):
     if len(models) == 0:
         raise ValueError("No models to create table")
 
-    data = list(map(lambda m: (m.name, m.model_str), models))
-    table = pd.DataFrame(data, columns=['Label', 'Model'])
+    data = list(map(lambda m: (m.name, m.model_str, m.adj_r2), models))
+    table = pd.DataFrame(data, columns=['Label', 'Model', 'Adjusted R^2'])
     return generate_table(table)
 
 
@@ -72,7 +72,8 @@ def generate_slider_updates():
     for slider_id, slider_col in zip(slider_names, selectable_columns):
         app.callback(
             Output(slider_id, 'disabled'),
-            [Input('sel_var1', 'value'), Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
+            [Input('sel_var1', 'value'), Input('sel_var2', 'value'), Input('sel_compare', 'value'),
+             Input('sel_repeat', 'value')]
         )(partial(update_slider, slider_col))
 
 

@@ -191,11 +191,13 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
 
         num_colors = len(models) + len(split_dfs)
 
-        for i, ((region, frame), model) in enumerate(zip(split_dfs, models)):
+        for i, (region, frame) in enumerate(split_dfs):
+            name = str(region)
+            model = next(m for m in models if m.name == name)
             options_m = dict(
                 x=x_vals,
                 y=sample_points(model),
-                name='%s: %s (model)' % (sel_compare, str(region)),
+                name='%s: %s (model)' % (sel_compare, name),
                 legendgroup=region,
             )
 
@@ -203,7 +205,7 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
                 x=frame[sel_var1],
                 y=frame[sel_metric],
                 mode='markers',
-                name='%s: %s (data)' % (sel_compare, str(region)),
+                name='%s: %s (data)' % (sel_compare, name),
                 legendgroup=region,
             )
 

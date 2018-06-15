@@ -115,7 +115,7 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
 
         for i, (region, frame) in enumerate(split_dfs):
             name = str(region)
-            model = next(m for m in models if m.name == name)
+            model = next(m for m in models if str(m.name) == name)
             options_m = dict(
                 x=x_vals,
                 y=sample_points(model),

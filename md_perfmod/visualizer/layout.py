@@ -71,13 +71,13 @@ def layout(num_variables, selectable_columns, selectable_columns_values, metric_
             html.H3('Model'),
             dcc.Graph(id='model-graph'),
             html.Table(id='model-table'),
-        ], style={'width': '48%', 'display': 'inline-block'}),
+        ], style={'width': '49%', 'float': 'left', 'display': 'inline-block'}),
         html.Div([
             html.H3('Fixed values'),
             html.Div(
                 sliders
             ),
-        ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
+        ], style={'width': '48%', 'float': 'left', 'display': 'inline-block'}),
 
         html.Div([], style={'margin-top': '4em'}),
         html.Div(id='models', style={'display': 'none'}),

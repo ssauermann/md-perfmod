@@ -3,7 +3,6 @@
 import pickle
 
 import base64
-import colorlover as cl
 import dash
 import dash_html_components as html
 import os
@@ -13,6 +12,7 @@ from dash.dependencies import Input, Output
 from flask_caching import Cache
 from functools import partial
 
+from md_perfmod.visualizer import graphs
 from md_perfmod.visualizer import model_creation
 from md_perfmod.visualizer.layout import layout
 
@@ -90,12 +90,6 @@ def update_model_graph(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, 
 
     models = decode(model_json)
 
-    bounds = [(df[sel_var1].min(), df[sel_var1].max())]
-    if sel_var2 is not None:
-        bounds.append((df[sel_var2].min(), df[sel_var2].max()))
-
-    data_list = []
-
     # filtering
     filtered_df = df
     for col, val in zip(selectable_columns, args):
@@ -105,65 +99,19 @@ def update_model_graph(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, 
             val = df[col].unique()[val + len(df[col].unique())]
         filtered_df = filtered_df[filtered_df[col] == val]
 
-    if sel_compare is not None:
-        split_dfs = [frame for frame in filtered_df.groupby(sel_compare)]
-
-        num_colors = len(models) + len(split_dfs)
-        # TODO Scatter3d
-        for i, (region, frame) in enumerate(split_dfs):
-            name = str(region)
-            model = next(m for m in models if str(m.name) == name)
-            x, samples = model.sample(*bounds)
-            options_m = dict(
-                x=x[0],
-                name='%s: %s (model)' % (sel_compare, name),
-                legendgroup=region,
-            )
-
-            options_d = dict(
-                x=frame[sel_var1],
-                mode='markers',
-                name='%s: %s (data)' % (sel_compare, name),
-                legendgroup=region,
-            )
-
-            if sel_var2 is None:
-                options_m['y'] = samples
-                options_d['y'] = frame[sel_metric]
-            else:
-                options_m['y'] = x[1]
-                options_m['z'] = samples
-                options_d['y'] = frame[sel_var2]
-                options_d['z'] = frame[sel_metric]
-
-            if 3 < num_colors < 13:
-                colors = cl.scales[str(num_colors)]['qual']['Paired']
-                options_m['line'] = dict(color=colors[2 * i])
-                options_d['marker'] = dict(color=colors[2 * i + 1])
-            elif num_colors < 25:
-                colors = cl.scales[str(num_colors)]['qual']['Set1']
-                options_m['line'] = dict(color=colors[i])
-                options_d['marker'] = dict(color=colors[i])
-
-            m = go.Scatter(options_m)
-            d = go.Scatter(options_d)
-            data_list += [m, d]
+    bounds = [(df[sel_var1].min(), df[sel_var1].max())]
+    if sel_var2 is not None:
+        bounds.append((df[sel_var2].min(), df[sel_var2].max()))
+        if sel_compare is not None:
+            data_list = graphs.two_d_graph_multi(models, bounds, filtered_df, sel_var1, sel_var2, sel_metric,
+                                                 sel_compare)
+        else:
+            data_list = graphs.two_d_graph(models, bounds, filtered_df, sel_var1, sel_var2, sel_metric)
     else:
-        x, samples = models[0].sample(*bounds)
-        data_list += [go.Scatter(
-            x=x[0],
-            y=samples,
-            name='model',
-            legendgroup='1',
-        )]
-        data_list += [
-            go.Scatter(
-                x=filtered_df[sel_var1],
-                y=filtered_df[sel_metric],
-                mode='markers',
-                name='data',
-                legendgroup='1',
-            )]
+        if sel_compare is not None:
+            data_list = graphs.one_d_graph_multi(models, bounds, filtered_df, sel_var1, sel_metric, sel_compare)
+        else:
+            data_list = graphs.one_d_graph(models, bounds, filtered_df, sel_var1, sel_metric)
 
     return {
         'data': data_list,

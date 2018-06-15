@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import json
+import pickle
 
+import base64
 import colorlover as cl
 import dash
 import dash_core_components as dcc
@@ -13,7 +14,6 @@ import plotly.graph_objs as go
 from dash.dependencies import Input, Output
 from flask_caching import Cache
 from functools import partial
-from py_expression_eval import Parser
 
 from md_perfmod.visualizer import model_creation
 
@@ -75,7 +75,6 @@ app.layout = html.Div(children=[
             dcc.Dropdown(
                 id='sel_var1',
                 options=list(map(lambda c: {'label': c, 'value': c}, selectable_columns)),
-                value=selectable_columns[0]
             )
         ], style={'width': '25%', 'float': 'left', 'display': 'inline-block'}),
         html.Div([
@@ -83,7 +82,6 @@ app.layout = html.Div(children=[
             dcc.Dropdown(
                 id='sel_metric',
                 options=list(map(lambda c: {'label': c, 'value': c}, metric_columns)),
-                value=metric_columns[0]
             )
         ], style={'width': '25%', 'float': 'left', 'display': 'inline-block'}),
         html.Div([
@@ -136,12 +134,12 @@ def generate_table(dataframe, max_rows=None):
 
 @app.callback(Output('model-table', 'children'), [Input('sel_compare', 'value'), Input('models', 'children')])
 def update_model_table(compare, models_json):
-    models = json.loads(models_json)
+    models = decode(models_json)
 
-    if compare is not None:
-        data = list(zip(df[compare].unique(), models))
-    else:
-        data = [('model', models[0])]
+    if len(models) == 0:
+        raise ValueError("No models to create table")
+
+    data = list(map(lambda m: (m.name, m.model_str), models))
     table = pd.DataFrame(data, columns=['Label', 'Model'])
     return generate_table(table)
 
@@ -165,17 +163,18 @@ generate_slider_updates()
                Input('sel_compare', 'value'), Input('sel_repeat', 'value'), Input('models', 'children')]
               + [Input(sid, 'value') for sid in slider_names])
 def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json, *args):
-    parser = Parser()
-    models = json.loads(model_json)
+    if sel_var1 is None or sel_metric is None:
+        raise ValueError("Nothing selected")
+
+    models = decode(model_json)
 
     data_list = []
     x_vals = np.linspace(df[sel_var1].min(), df[sel_var1].max(), 50)
 
     def sample_points(model_):
-        m = parser.parse(model_)
         points = []
         for x in x_vals:
-            points.append(m.evaluate({sel_var1: x}))
+            points.append(model_.evaluate(x))
         return points
 
     # filtering
@@ -185,15 +184,9 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
             continue
         if val < 0:
             val = df[col].unique()[val + len(df[col].unique())]
-        filtered_df = filtered_df[df[col] == val]
-
-    if sel_var1 is None:
-        sel_var1 = selectable_columns[0]
-    if sel_metric is None:
-        sel_metric = metric_columns[1]
+        filtered_df = filtered_df[filtered_df[col] == val]
 
     if sel_compare is not None:
-
         split_dfs = [frame for frame in filtered_df.groupby(sel_compare)]
 
         num_colors = len(models) + len(split_dfs)
@@ -253,6 +246,14 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
     }
 
 
+def encode(obj):
+    return base64.encodebytes(pickle.dumps(obj)).decode('ascii')
+
+
+def decode(json):
+    return pickle.loads(base64.decodebytes(json.encode('ascii')))
+
+
 @app.callback(Output('models', 'children'),
               [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
                Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
@@ -261,7 +262,7 @@ def update_model_graph(sel_var1, sel_metric, sel_compare, sel_repeat, model_json
 def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *slider_vals):
     # variable and metric must be selected
     if sel_var1 is None or sel_metric is None:
-        return json.dumps([])
+        raise ValueError("Nothing selected")
 
     if sel_compare is None:
         comp_values = None
@@ -278,9 +279,7 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *slider_vals):
 
     models = model_creation.create(csv_file_path, [sel_var1], sel_metric, sel_repeat, sel_compare, comp_values, fixed)
 
-    models = list(map(lambda m: m.model_str, models))  # TODO Serialize complete model
-
-    return json.dumps(models)
+    return encode(models)
 
 
 @app.callback(Output('1d-graph', 'figure'),
@@ -295,7 +294,7 @@ def update_figure(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
             continue
         if val < 0:
             val = df[col].unique()[val + len(df[col].unique())]
-        filtered_df = filtered_df[df[col] == val]
+        filtered_df = filtered_df[filtered_df[col] == val]
 
     if sel_var1 is None:
         sel_var1 = selectable_columns[0]

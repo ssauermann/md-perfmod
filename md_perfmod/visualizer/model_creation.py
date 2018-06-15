@@ -14,7 +14,6 @@ def convert(file, variables, metric, repeat, fixed):
     _, tmp_file = tempfile.mkstemp()
     params = Parameters(vars=variables, metric=metric, repeat=repeat, fixed=fixed, experiment='exp', file_in=file,
                         file_out=tmp_file)
-    print(params)
     perform_conversion(params)
     return tmp_file
 
@@ -32,7 +31,7 @@ def create(file, variables, metric, repeat, compare, compare_vals, fixed):
             model_summary = subprocess.check_output(['extrap-print', tmp_file_out]).decode("utf-8")
 
             return re.search(r'model: (.+)\n', model_summary).group(1)
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             return None
 
     if compare is None:

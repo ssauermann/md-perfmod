@@ -5,7 +5,6 @@ import pickle
 import base64
 import colorlover as cl
 import dash
-import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import os
@@ -16,6 +15,7 @@ from flask_caching import Cache
 from functools import partial
 
 from md_perfmod.visualizer import model_creation
+from md_perfmod.visualizer.layout import layout
 
 csv_file_path = os.path.relpath('../../ls1-bench4.csv')
 df = pd.read_csv(csv_file_path)
@@ -23,99 +23,21 @@ df = pd.read_csv(csv_file_path)
 app = dash.Dash()
 cache = Cache(app.server, config={'CACHE_TYPE': 'simple'})
 
-sliders = []
-slider_names = []
-
-
-def create_marks(l):
-    result = dict()
-    for i, e in enumerate(l):
-        if isinstance(e, str):
-            result[-len(l) + i] = e
-        elif e % 1 == 0:
-            result[int(e)] = str(e)
-        else:
-            result[e] = str(e)
-    return result
-
-
-def add_slider(column):
-    sid = 'slider%i' % len(sliders)
-    col = df[column].unique()
-    minv = -len(col) if isinstance(col[0], str) else col.min()
-    maxv = -1 if isinstance(col[0], str) else col.max()
-    sliders.append(dcc.Slider(
-        id=sid,
-        min=minv,
-        max=maxv,
-        value=minv,
-        step=None,
-        updatemode='drag',
-        marks=create_marks(col),
-    ))
-    slider_names.append(sid)
-
-
 selectable_columns = []
+selectable_columns_values = []
 metric_columns = []
 
 for c in df.columns:
-    if 1 < len(df[c].unique()) < len(df) / 2:
+    unique_val = df[c].unique()
+    if 1 < len(unique_val) < len(df) / 2:
         selectable_columns.append(c)
-        add_slider(c)
-    elif 1 < len(df[c].unique()):
+        selectable_columns_values.append(unique_val)
+    elif 1 < len(unique_val):
         metric_columns.append(c)
 
-app.layout = html.Div(children=[
-    html.H1('Benchmark visualization'),
+slider_names = [('slider%i' % i) for i in range(len(selectable_columns))]
 
-    html.Div([
-        html.Div([
-            html.H3('Variable'),
-            dcc.Dropdown(
-                id='sel_var1',
-                options=list(map(lambda c: {'label': c, 'value': c}, selectable_columns)),
-            )
-        ], style={'width': '25%', 'float': 'left', 'display': 'inline-block'}),
-        html.Div([
-            html.H3('Metric'),
-            dcc.Dropdown(
-                id='sel_metric',
-                options=list(map(lambda c: {'label': c, 'value': c}, metric_columns)),
-            )
-        ], style={'width': '25%', 'float': 'left', 'display': 'inline-block'}),
-        html.Div([
-            html.H3('Repeat'),
-            dcc.Dropdown(
-                id='sel_repeat',
-                options=list(map(lambda c: {'label': c, 'value': c}, selectable_columns)),
-            )
-        ], style={'width': '25%', 'float': 'left', 'display': 'inline-block'}),
-        html.Div([
-            html.H3('Comparison'),
-            dcc.Dropdown(
-                id='sel_compare',
-                options=list(map(lambda c: {'label': c, 'value': c}, selectable_columns)),
-            )
-        ], style={'width': '25%', 'float': 'left', 'display': 'inline-block'}),
-    ]),
-
-    html.Div([
-        html.H3('Plot'),
-        dcc.Graph(id='1d-graph'),
-        html.Div(list(map(lambda t: html.Div(
-            [html.H4(t[0]), t[1]]), zip(sliders, selectable_columns))))
-    ], style={'width': '48%', 'display': 'inline-block'}),
-
-    html.Div([
-        html.H3('Model'),
-        dcc.Graph(id='model-graph'),
-        html.Table(id='model-table'),
-    ], style={'width': '48%', 'float': 'right', 'display': 'inline-block'}),
-
-    html.Div([], style={'margin-top': '4em'}),
-    html.Div(id='models', style={'display': 'none'}),
-])
+app.layout = layout(1, selectable_columns, selectable_columns_values, metric_columns)
 
 
 def generate_table(dataframe, max_rows=None):
@@ -132,8 +54,8 @@ def generate_table(dataframe, max_rows=None):
     )
 
 
-@app.callback(Output('model-table', 'children'), [Input('sel_compare', 'value'), Input('models', 'children')])
-def update_model_table(compare, models_json):
+@app.callback(Output('model-table', 'children'), [Input('models', 'children')])
+def update_model_table(models_json):
     models = decode(models_json)
 
     if len(models) == 0:
@@ -282,58 +204,6 @@ def update_model(sel_var1, sel_metric, sel_compare, sel_repeat, *slider_vals):
     models = model_creation.create(csv_file_path, [sel_var1], sel_metric, sel_repeat, sel_compare, comp_values, fixed)
 
     return encode(models)
-
-
-@app.callback(Output('1d-graph', 'figure'),
-              [Input('sel_var1', 'value'), Input('sel_metric', 'value'),
-               Input('sel_compare', 'value'), Input('sel_repeat', 'value')]
-              + [Input(sid, 'value') for sid in slider_names])
-def update_figure(sel_var1, sel_metric, sel_compare, sel_repeat, *args):
-    # filtering
-    filtered_df = df
-    for col, val in zip(selectable_columns, args):
-        if col in [sel_var1, sel_metric, sel_compare, sel_repeat]:
-            continue
-        if val < 0:
-            val = df[col].unique()[val + len(df[col].unique())]
-        filtered_df = filtered_df[filtered_df[col] == val]
-
-    if sel_var1 is None:
-        sel_var1 = selectable_columns[0]
-    if sel_metric is None:
-        sel_metric = metric_columns[1]
-
-    data_list = []
-    mode = 'lines+markers' if sel_repeat is None else 'markers'  # TODO Median line if showing multiple repeats?
-
-    if sel_compare is not None:
-        split_dfs = [frame for frame in filtered_df.groupby(sel_compare)]
-
-        for region, frame in split_dfs:
-            d = go.Scatter(
-                x=frame[sel_var1],
-                y=frame[sel_metric],
-                mode=mode,
-                name=sel_compare + ': ' + str(region),
-            )
-            data_list.append(d)
-    else:
-        data_list = [
-            go.Scatter(
-                x=filtered_df[sel_var1],
-                y=filtered_df[sel_metric],
-                mode=mode,
-            )]
-
-    return {
-        'data': data_list,
-        'layout': go.Layout(
-            xaxis={'title': sel_var1},
-            yaxis={'title': sel_metric},
-            margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
-            hovermode='closest'
-        )
-    }
 
 
 if __name__ == '__main__':

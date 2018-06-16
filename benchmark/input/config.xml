@@ -24,9 +24,9 @@
             <!-- Nparticles determined by the input file -->
             <temperature unit="reduced">0.95</temperature>
             <domain type="box">
-                <lx>100.0</lx>
-                <ly>100.0</ly>
-                <lz>100.0</lz>
+                <lx>120.0</lx>
+                <ly>120.0</ly>
+                <lz>120.0</lz>
             </domain>
 
             <components>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <jube>
     <parameterset name="user_param">
-        <parameter name="mardyn_dir" type="string">${jube_benchmark_home}/../ls1</parameter>
-        <parameter name="batch_command" type="string">python3 ${jube_benchmark_home}/job_combine.py add</parameter>
+        <parameter name="mardyn_dir" type="string">${jube_benchmark_home}/../../ls1</parameter>
+        <parameter name="batch_command" type="string">job-combine -s ${jube_benchmark_home}/job_combine.storage add</parameter>
         <parameter name="input_dir" type="string">input</parameter>
         <parameter name="input_file" type="string">config.xml</parameter>
     </parameterset>
@@ -19,15 +19,16 @@
         <parameter name="threadspertask" type="int">256</parameter>
         <parameter name="queue">mpp3</parameter>
         <parameter name="executable">./compile/src/MarDyn ./${input_dir}/${input_file} --final-checkpoint=0</parameter>
-        <parameter name="timelimit">00:05:00</parameter>
+        <parameter name="timelimit">00:20:00</parameter>
     </parameterset>
 
     <parameterset name="input_param">
-        <parameter name="density" type="float">0.1, 0.3, 0.5, 0.7, 0.9</parameter>
+        <parameter name="density" type="float">0.01, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8</parameter>
         <parameter name="cutoff" type="float">2.0, 3.0, 4.0, 5.0, 6.0</parameter>
         <parameter name="ljcenters" type="int">1, 2, 3, 4, 5</parameter>
         <!-- ori, hs, mp have no openmp implementation, nt is not fully implemented, qui requires different compilation -->
-        <parameter name="traversal" type="string">c08,c04<!--,hs,slice,ori,mp--><!--,nt,qui--></parameter>
+        <parameter name="traversal" type="string">c08,c04,hs,slice,<!--ori,-->mp<!--,nt,qui--></parameter>
+        <!-- use 1 cell in cutoff radius for everything except for midpoint -->
         <parameter name="cellsincutoff" type="int" mode="python">
             { "mp" : "1, 2" }.get("${traversal}", "1")
         </parameter>

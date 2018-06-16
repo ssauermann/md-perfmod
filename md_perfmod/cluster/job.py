@@ -4,9 +4,9 @@ from datetime import timedelta
 import re
 from os import path
 
-from utils import paths
-from utils import time_parser
-from . import managers as wlm
+from md_perfmod.cluster import managers as wlm
+from md_perfmod.utils import paths
+from md_perfmod.utils import time_parser
 
 
 class Job:

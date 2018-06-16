@@ -9,8 +9,8 @@ from difflib import SequenceMatcher
 import os
 from os import path
 
-from cluster import job as cjob
-from utils import time_parser, paths
+from md_perfmod.cluster import job as cjob
+from md_perfmod.utils import time_parser, paths
 
 
 def read_args():
@@ -64,7 +64,10 @@ def read_args():
     if mode.verbose is None:
         mode.verbose = 0
 
-    mode.func(mode)
+    try:
+        mode.func(mode)
+    except AttributeError:
+        print("Illegal mode. Use -h to get a list of possible options.")
 
 
 def load(file):

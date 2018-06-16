@@ -71,7 +71,10 @@ def read_args():
 
 
 def load(file):
-    file_abs = path.join(paths.abs_folder(), file)  # TODO Does this work if file is given absolute?
+    if not path.isabs(file):
+        file_abs = path.join(paths.abs_folder(), file)
+    else:
+        file_abs = file
     with open(file_abs, 'ab+') as f:
         try:
             f.seek(0)
@@ -81,7 +84,10 @@ def load(file):
 
 
 def store(file, dic):
-    file_abs = path.join(paths.abs_folder(), file)  # TODO Does this work if file is given absolute?
+    if not path.isabs(file):
+        file_abs = path.join(paths.abs_folder(), file)
+    else:
+        file_abs = file
     with open(file_abs, 'wb+') as f:
         pickle.dump(dic, f)
 

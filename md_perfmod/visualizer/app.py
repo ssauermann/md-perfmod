@@ -169,15 +169,24 @@ def update_model_graph(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, 
         else:
             data_list = graphs.one_d_graph(models, bounds, filtered_df, sel_var1, sel_metric)
 
-    # TODO Plot combined models
-    return {
-        'data': data_list,
-        'layout': go.Layout(
+    if sel_var2 is None:
+        lo = go.Layout(
             xaxis={'title': sel_var1},
             yaxis={'title': sel_metric},
             margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
             hovermode='closest'
         )
+    else:
+        lo = go.Layout(scene=dict(
+            xaxis={'title': sel_var1},
+            yaxis={'title': sel_var2},
+            zaxis={'title': sel_metric}),
+            margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
+            hovermode='closest',
+        )
+    return {
+        'data': data_list,
+        'layout': lo
     }
 
 

@@ -66,6 +66,11 @@ def update_model_table(models_json):
     return generate_table(table)
 
 
+def get_bounds(variable):
+    ix = selectable_columns.index(variable)
+    return min(selectable_columns_values[ix]), max(selectable_columns_values[ix])
+
+
 @app.callback(Output('combined_model-table', 'children'),
               [Input('models', 'children'), Input('combined_models', 'children')])
 def update_combined_model_table(models_json, combined_models_json):
@@ -75,13 +80,12 @@ def update_combined_model_table(models_json, combined_models_json):
     if len(models) == 0:
         raise ValueError("No models to create table")
 
+    if len(combined_models) == 0:
+        return generate_table(pd.DataFrame())
+
     def create_table_data(model, model_combined):
         name = model.name
         model_str = model_combined.model_str
-
-        def get_bounds(variable):
-            ix = selectable_columns.index(variable)
-            return min(selectable_columns_values[ix]), max(selectable_columns_values[ix])
 
         bounds = list(map(get_bounds, model_combined.variables))
 
@@ -91,8 +95,29 @@ def update_combined_model_table(models_json, combined_models_json):
         return name, model_str, error
 
     data = list(map(lambda m: create_table_data(m[0], m[1]), zip(models, combined_models)))
-    print(data)
     table = pd.DataFrame(data, columns=['Label', 'Model', 'Error to 2D model'])
+    return generate_table(table)
+
+
+@app.callback(Output('classification-table', 'children'),
+              [Input('models', 'children'), Input('combined_models', 'children')])
+def update_classification_table(models_json, combined_models_json):
+    models = decode(models_json)
+    combined_models = decode(combined_models_json)
+
+    if len(models) <= 1 or len(combined_models) <= 1:
+        return generate_table(pd.DataFrame())
+
+    bounds = list(map(get_bounds, models[0].variables))
+
+    n_samples = 53
+    error, classified_corr, min_err, max_err = comparison.calculate_error(models, combined_models, *bounds,
+                                                                          n_samples=n_samples, rel=True)
+
+    data = [(100 * (1 - classified_corr), error, min_err, max_err)]
+    table = pd.DataFrame(data,
+                         columns=['Wrongly classified samples (percent)', 'Avg. difference to real classification',
+                                  'Min error', 'Max error'])
     return generate_table(table)
 
 
@@ -176,7 +201,7 @@ def update_model_wrap(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, *
 def update_model(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, *slider_vals):
     # variable and metric must be selected
     if sel_var1 is None or sel_metric is None:
-        raise ValueError("Nothing selected")
+        return encode(list())
 
     if sel_compare is None:
         comp_values = None
@@ -208,7 +233,7 @@ def update_model(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, *slide
 @cache.memoize()
 def update_combined_model(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, *slider_vals):
     if sel_var1 is None or sel_var2 is None or sel_metric is None:
-        raise ValueError("Not enough values selected")
+        return encode(list())
 
     def mid_val(ll):  # similar to median, when even number of values takes the larger 'middle' value
         sl = sorted(ll)

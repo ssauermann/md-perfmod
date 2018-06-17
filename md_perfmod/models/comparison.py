@@ -42,11 +42,15 @@ def sample_points(bounds, n_samples):
 
 
 def calculate_error(high_dim_models, combined_models, *bounds, n_samples=53, best=min,
-                    distance_norm=lambda x, y: abs(x - y)):
+                    distance_norm=lambda x, y: abs(x - y), rel=False):
     x = sample_points(bounds, n_samples)
 
     def distance_fun(p):
         return distance_to_real_best(high_dim_models, combined_models, p, best=best, distance_norm=distance_norm)
 
     errors = list(map(distance_fun, x))
-    return sum(errors), errors.count(0)
+    if not rel:
+        return sum(errors), errors.count(0), min(errors), max(errors)
+    else:
+        n = (n_samples * n_samples)
+        return sum(errors) / n, errors.count(0) / n, min(errors), max(errors)

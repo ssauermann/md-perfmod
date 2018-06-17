@@ -72,14 +72,16 @@ def layout(num_variables, selectable_columns, selectable_columns_values, metric_
             dcc.Graph(id='model-graph'),
             html.H5('Models'),
             html.Table(id='model-table'),
-            html.H5('Combined models'),
-            html.Table(id='combined_model-table'),
         ], style={'width': '49%', 'float': 'left', 'display': 'inline-block'}),
         html.Div([
             html.H3('Fixed values'),
             html.Div(
                 sliders
             ),
+            html.H5('Combined models'),
+            html.Table(id='combined_model-table'),
+            html.H5('Classification'),
+            html.Table(id='classification-table'),
         ], style={'width': '48%', 'float': 'left', 'display': 'inline-block'}),
 
         html.Div([], style={'margin-top': '4em'}),

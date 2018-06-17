@@ -52,7 +52,7 @@ def slider(name, hid, values):
 def layout(num_variables, selectable_columns, selectable_columns_values, metric_columns):
     cmb_boxes = []
     for i in range(1, num_variables + 1):
-        cmb_boxes += combo_box('Variable %i' %i, 'sel_var%i' % i, selectable_columns, num_variables + 3)
+        cmb_boxes += combo_box('Variable %i' % i, 'sel_var%i' % i, selectable_columns, num_variables + 3)
 
     cmb_boxes += combo_box('Metric', 'sel_metric', metric_columns, num_variables + 3)
     cmb_boxes += combo_box('Compare', 'sel_compare', selectable_columns, num_variables + 3)
@@ -68,9 +68,12 @@ def layout(num_variables, selectable_columns, selectable_columns_values, metric_
         html.Div(cmb_boxes),
 
         html.Div([
-            html.H3('Model'),
+            html.H3('Graph'),
             dcc.Graph(id='model-graph'),
+            html.H5('Models'),
             html.Table(id='model-table'),
+            html.H5('Combined models'),
+            html.Table(id='combined_model-table'),
         ], style={'width': '49%', 'float': 'left', 'display': 'inline-block'}),
         html.Div([
             html.H3('Fixed values'),
@@ -81,4 +84,5 @@ def layout(num_variables, selectable_columns, selectable_columns_values, metric_
 
         html.Div([], style={'margin-top': '4em'}),
         html.Div(id='models', style={'display': 'none'}),
+        html.Div(id='combined_models', style={'display': 'none'}),
     ])

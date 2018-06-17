@@ -31,4 +31,4 @@ Either prefix every python call with ```[python -m] pipenv run``` or enter the s
 
 #### 1.2.4 Running other python versions than 3.5?
 For other python versions it might be necessary to ignore the specific versions of the dependencies stored in the
- lock file. Use `pipenv install --skip-lock` for python 3.4 or python &ge; 3.6.
+ lock file. Use `pipenv install --skip-lock` for python &ge; 3.6.

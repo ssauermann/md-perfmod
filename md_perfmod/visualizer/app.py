@@ -190,6 +190,61 @@ def update_model_graph(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, 
     }
 
 
+# TODO Clean me up, does not update to empty graph, etc.
+@app.callback(Output('model-graph2', 'figure'),
+              [Input('sel_var1', 'value'), Input('sel_var2', 'value'), Input('sel_metric', 'value'),
+               Input('sel_compare', 'value'), Input('sel_repeat', 'value'), Input('combined_models', 'children')]
+              + [Input(sid, 'value') for sid in slider_names])
+def update_model_graph(sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat, model_json, *args):
+    if sel_var1 is None or sel_var2 is None or sel_metric is None:
+        raise ValueError("Nothing selected")
+
+    models = decode(model_json)
+
+    # filtering
+    filtered_df = df
+    for col, val in zip(selectable_columns, args):
+        if col in [sel_var1, sel_var2, sel_metric, sel_compare, sel_repeat]:
+            continue
+        if val < 0:
+            val = df[col].unique()[val + len(df[col].unique())]
+        filtered_df = filtered_df[filtered_df[col] == val]
+
+    bounds = [(df[sel_var1].min(), df[sel_var1].max())]
+    if sel_var2 is not None:
+        bounds.append((df[sel_var2].min(), df[sel_var2].max()))
+        if sel_compare is not None:
+            data_list = graphs.two_d_graph_multi(models, bounds, filtered_df, sel_var1, sel_var2, sel_metric,
+                                                 sel_compare)
+        else:
+            data_list = graphs.two_d_graph(models, bounds, filtered_df, sel_var1, sel_var2, sel_metric)
+    else:
+        if sel_compare is not None:
+            data_list = graphs.one_d_graph_multi(models, bounds, filtered_df, sel_var1, sel_metric, sel_compare)
+        else:
+            data_list = graphs.one_d_graph(models, bounds, filtered_df, sel_var1, sel_metric)
+
+    if sel_var2 is None:
+        lo = go.Layout(
+            xaxis={'title': sel_var1},
+            yaxis={'title': sel_metric},
+            margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
+            hovermode='closest'
+        )
+    else:
+        lo = go.Layout(scene=dict(
+            xaxis={'title': sel_var1},
+            yaxis={'title': sel_var2},
+            zaxis={'title': sel_metric}),
+            margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
+            hovermode='closest',
+        )
+    return {
+        'data': data_list,
+        'layout': lo
+    }
+
+
 def encode(obj):
     return base64.encodebytes(pickle.dumps(obj)).decode('ascii')
 

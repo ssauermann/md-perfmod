@@ -72,6 +72,7 @@ def layout(num_variables, selectable_columns, selectable_columns_values, metric_
             dcc.Graph(id='model-graph'),
             html.H5('Models'),
             html.Table(id='model-table'),
+            dcc.Graph(id='model-graph2'),
         ], style={'width': '49%', 'float': 'left', 'display': 'inline-block'}),
         html.Div([
             html.H3('Fixed values'),

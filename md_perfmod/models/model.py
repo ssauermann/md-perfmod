@@ -48,6 +48,9 @@ class Model:
     def __str__(self):
         return self.model_str
 
+    def __repr__(self):
+        return "%s - %s" % (self.name, self.model_str)
+
     def evaluate(self, *values):
         """
         Evaluate the model at the given position
@@ -69,7 +72,7 @@ class Model:
         :return: Area below the model curve
         """
         dimensions = len(bounds)
-        x, result = self.sample(bounds, n_evaluations=n_evaluations)
+        x, result = self.sample(*bounds, n_evaluations=n_evaluations)
         for d in range(dimensions):
             result = simps(result, x[d], axis=0)
 

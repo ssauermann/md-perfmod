@@ -9,8 +9,8 @@ from difflib import SequenceMatcher
 import os
 from os import path
 
-from md_perfmod.cluster import job as cjob
-from md_perfmod.utils import time_parser, paths
+from job_combine.cluster import job as cjob
+from job_combine.utils import paths, time_parser
 
 
 def read_args():

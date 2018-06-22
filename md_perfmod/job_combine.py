@@ -136,11 +136,11 @@ def partition(jobs, max_time, min_time, parallel, break_max=True):
     if max_time is None:
         tmax = timedelta.max
     else:
-        tmax = time_parser.str_to_timedelta(max_time, [time_format])
+        tmax = time_parser.str_to_timedelta(max_time, time_format)
     if min_time is None:
         tmin = timedelta()
     else:
-        tmin = time_parser.str_to_timedelta(min_time, [time_format])
+        tmin = time_parser.str_to_timedelta(min_time, time_format)
 
     if tmax < tmin:
         raise ValueError('Max time has to be larger than min time')

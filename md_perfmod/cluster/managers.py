@@ -40,6 +40,6 @@ managers = {
     # Lists have to be of the same length. Use None to fill missing values.
     # Regex expressions are applied to the complete line including the directive
     # Capture groups must be named 'arg' and 'val' for the arg_regex and 'arg' for the flag_regex
-    # Time formats can contain %d, %H, %M, %S for days, hours, minutes and seconds.
+    # Time formats can contain %D, %H, %M, %S for days, hours, minutes and seconds.
     # The first time format must contain s, m + s, h + m + s or d + h + m + s
 }

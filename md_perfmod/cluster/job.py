@@ -127,7 +127,7 @@ class Job:
                         val = None
 
                     if arg == manager.time_args[arg_index]:
-                        time = time_parser.str_to_timedelta(val, manager.time_formats)
+                        time = time_parser.str_to_timedelta(val, *manager.time_formats)
                     elif arg == manager.stdout_args[arg_index]:
                         stdout = val
                     elif arg == manager.stderr_args[arg_index]:

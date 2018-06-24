@@ -12,7 +12,6 @@ setup(
     # scripts=['bin/script'],
     entry_points={
         'console_scripts': [
-            'job-combine = job_combine.job_combine:main',
             'csv2extrap = md_perfmod.csv2extrap:main',
         ],
     },

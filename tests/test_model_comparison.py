@@ -16,7 +16,7 @@ def test_calculate_error():
     combined_1 = comparison.combine(Model('2', ['x']), Model('2', ['y']), 'A')
     combined_2 = comparison.combine(Model('x', ['x']), Model('y', ['y']), 'B')
     combined = [combined_1, combined_2]
-    err, err_c = comparison.calculate_error(two_d, combined, (0, 5), (0, 5), n_samples=3)
+    err, err_c, err_min, err_max = comparison.calculate_error(two_d, combined, (0, 5), (0, 5), n_samples=3, rel=False)
     assert math.isclose(err, 2, rel_tol=1e-3)
     assert err_c == 7
     # TODO Verify values by hand
@@ -24,6 +24,6 @@ def test_calculate_error():
 
 def test_calculate_error2():
     two_d = [Model('4', ['x', 'y'], 'A'), Model('x+y', ['x', 'y'], 'B')]
-    err, err_c = comparison.calculate_error(two_d, two_d, (0, 5), (0, 5), n_samples=10)
+    err, err_c, err_min, err_max = comparison.calculate_error(two_d, two_d, (0, 5), (0, 5), n_samples=10, rel=False)
     assert err == 0
     assert err_c == 100

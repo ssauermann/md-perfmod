@@ -83,7 +83,7 @@ def two_d_graph(models, bounds, filtered_df, sel_var1, sel_var2, sel_metric):
 def create_mesh(x, samples, options_m):
     data_list = []
     x_grid, y_grid = np.meshgrid(x[0], x[1])
-    for a, b, c in zip(x_grid, y_grid, samples):
+    for a, b, c in zip(x_grid, y_grid, samples.T):
         options_m['x'] = a
         options_m['y'] = b
         options_m['z'] = c
@@ -91,7 +91,7 @@ def create_mesh(x, samples, options_m):
         options_m['showlegend'] = False
 
     y_grid, x_grid = np.meshgrid(x[1], x[0])
-    for a, b, c in zip(x_grid, y_grid, samples.T):
+    for a, b, c in zip(x_grid, y_grid, samples):
         options_m['x'] = a
         options_m['y'] = b
         options_m['z'] = c

@@ -17,7 +17,7 @@ from md_perfmod.visualizer import graphs
 from md_perfmod.visualizer import model_creation
 from md_perfmod.visualizer.layout import layout
 
-csv_file_path = os.path.relpath('../../ls1-bench4.csv')
+csv_file_path = os.path.relpath('../../ls1-bench9.3.csv')
 df = pd.read_csv(csv_file_path)
 
 app = dash.Dash()
@@ -29,7 +29,7 @@ metric_columns = []
 
 for c in df.columns:
     unique_val = df[c].unique()
-    if 1 < len(unique_val) < len(df) / 2:
+    if 1 < len(unique_val) < len(df) / 4:
         selectable_columns.append(c)
         selectable_columns_values.append(unique_val)
     elif 1 < len(unique_val):

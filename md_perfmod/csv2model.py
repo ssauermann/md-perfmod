@@ -1,7 +1,7 @@
 import argparse
+import json
 from collections import namedtuple
 
-import os
 import pandas as pd
 
 from visualizer.model_creation import create
@@ -20,8 +20,8 @@ def read_params():
 
     parser.add_argument('file_in', help="Input file [csv]")
     parser.add_argument('file_out', nargs='?', default='',
-                        help='Output file (will be overwritten) [default: FILE_IN with the file extension changed to '
-                             '.models]')
+                        help='Output file containing the models in a JSON format (will be overwritten) [default: No '
+                             'file is written')
     parser.add_argument('-r', '--repeat', default='repeat',
                         help='Column containing the repeat count [default: %(default)s]')
     parser.add_argument('-m', '--metric', default='time',
@@ -50,13 +50,6 @@ def read_params():
     if args.single_measurement:
         repeat = None
 
-    # If no output filename was given, just use the input file with a .model extension
-    if file_out == '' or file_out.isspace():
-        path, ext = os.path.splitext(file_in)
-        file_out = path + '.model'
-        if file_out == file_in:
-            file_out += '.extrap'  # or with .model.extrap if the input file has a .model extension already
-
     # Convert fixed variables from [key=val, ...] to dictionary
     fixed = {}
     if args.fixed:
@@ -83,9 +76,15 @@ def main():
     models = create(params.file_in, params.vars, params.metric, params.repeat,
                     params.compare, compare_values, params.fixed)
 
-    print("Model creation completed!")
+    print('Model creation completed!\n')
 
-    print(models)
+    print('%-15s%-12s%-s' % ('Identifier', 'Adj.R^2', 'Model'))
+    for model in models:
+        print('%-15s%-12f%-s' % (model.name, model.adj_r2, model.model_str))
+
+    if params.file_out is not '':
+        with open(params.file_out, 'w') as file:
+            json.dump(list(map(lambda x: x.serializable(), models)), file, indent=4)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,9 @@ fix_regex = re.compile(r'(\w+)\^([-+]?\d*\.?\d+([eE][-+]?\d+)?)(\([^(]*?\))')
 #  matches word with exponent of 1 e.g. x^1
 fix_regex_simplify = re.compile(r'(\w+)\^1(?![\d.])')
 
+#  matches `+ -`
+fix_regex_plus_minus = re.compile(r'\+ -')
+
 
 def notation_fix(expression):
     """
@@ -24,6 +27,7 @@ def notation_fix(expression):
     :return: Fixed string representation
     """
     tmp = fix_regex_simplify.sub(r'\1', expression)  # remove exponent 1
+    tmp = fix_regex_plus_minus.sub('- ', tmp)  # replace + - with only -
     return fix_regex.sub(r'(\1\4)^\2', tmp)  # replacement with (word(any))^float
 
 
@@ -50,6 +54,9 @@ class Model:
 
     def __repr__(self):
         return "%s - %s" % (self.name, self.model_str)
+
+    def serializable(self):
+        return {'identifier': self.name, 'adj_r2': self.adj_r2, 'model': self.model_str, 'variables': self.variables}
 
     def evaluate(self, *values):
         """

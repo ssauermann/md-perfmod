@@ -20,13 +20,14 @@ def read_params():
 
     parser.add_argument('file_in', help="Input file [csv]")
     parser.add_argument('file_out', nargs='?', default='',
-                        help='Output file (will be overwritten) [default: FILE_IN with the file ending changed to .txt]')
+                        help='Output file (will be overwritten) [default: FILE_IN with the file extension changed to '
+                             '.txt]')
     parser.add_argument('-n', '--name', default='experiment',
                         help='Name of the experiment for the output [default: %(default)s]')
     parser.add_argument('-r', '--repeat', default='repeat',
                         help='Column containing the repeat count [default: %(default)s]')
     parser.add_argument('-m', '--metric', default='time',
-                        help='Column containing the measurement value [default: %(default)s]')
+                        help='Column containing the measurement values [default: %(default)s]')
     parser.add_argument('-v', '--vars', required=True, nargs='+',
                         help='Column names of the variables to use')
     parser.add_argument('-f', '--fixed', nargs='+',
@@ -49,12 +50,12 @@ def read_params():
     if args.single_measurement:
         repeat = None
 
-    # If no output filename was given, just use the input file with a txt ending
+    # If no output filename was given, just use the input file with a txt extension
     if file_out == '' or file_out.isspace():
         path, ext = os.path.splitext(file_in)
         file_out = path + '.txt'
         if file_out == file_in:
-            file_out += '.extrap'  # or with .txt.extrap if the input file has a txt ending already
+            file_out += '.extrap'  # or with .txt.extrap if the input file has a txt extension already
 
     # Convert fixed variables from [key=val, ...] to dictionary
     fixed = {}
